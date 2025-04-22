@@ -1,0 +1,24 @@
+[
+  {
+    "id": "a55bd0fb-9cb4-4bed-b2d1-7e679918c00f",
+    "nom": "brdf",
+    "prenom": "Aya",
+    "email": "aya_brdf@example.com",
+    "telephone": "0624939290",
+    "mot_de_passe": "$2b$12$slAPs0/UNC1kkjALZiJEdeqH4T3ZdxdtFCst25AqQn3IVU8LJLFT.",
+    "date_inscription": "2025-04-10T15:43:58.649652",
+    "est_actif": true,
+    "role": "client"
+  },
+  {
+    "id": "fdeadfca-6b7e-447d-9fa1-f7fec98c0d0a",
+    "nom": "string",
+    "prenom": "string",
+    "email": "user@example.com",
+    "telephone": "string",
+    "mot_de_passe": "$2b$12$QxbOTl/5d7EXnmxNDK5H3OBffOc9P5ILHY5J9eNX8FSW2UYqE3H.a",
+    "date_inscription": "2025-04-10T15:45:18.331082",
+    "est_actif": true,
+    "role": "client"
+  }
+]
