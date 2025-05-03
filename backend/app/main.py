@@ -6,7 +6,9 @@ import uuid
 from datetime import datetime, timedelta
 import jwt
 from pydantic import BaseModel
-from app.routers import users, auth
+from app.routers import users, auth, templates, entreprises
+from app.routers import contact
+
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -24,28 +26,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
+app.include_router(templates.router)
+app.include_router(entreprises.router)
 
 # JWT Configuration
 SECRET_KEY = "your-secret-key"  # In production, use environment variable
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 400
 
 # OAuth2 scheme for token authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-# MongoDB connection string
-MONGODB_URL = "mongodb://localhost:27017"
+COUCHDB_URL = "http://localhost:5984"
 
 # MongoDB collections
 USERS_COLLECTION = "users"
 MODELS_COLLECTION = "models"
 VARIABLES_COLLECTION = "variables"
 DOCUMENTS_COLLECTION = "documents"
-DOSSIERS_COLLECTION = "dossiers"
-FORMS_COLLECTION = "forms"
-FIELDS_COLLECTION = "fields"
-JOURNAL_COLLECTION = "journal"
 NOTIFICATIONS_COLLECTION = "notifications"
 
 # Include routers
@@ -53,8 +51,8 @@ from app.routers import users, auth
 
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(contact.router)
 
 @app.get("/")
 async def root():
     return {"message": "Bienvenue sur l'API de gestion de documents juridiques"}
-

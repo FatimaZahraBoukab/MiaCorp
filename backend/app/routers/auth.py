@@ -7,7 +7,7 @@ import uuid
 import bcrypt
 from pydantic import BaseModel
 
-from ..database import MongoDB
+from ..couchdb import CouchDB
 from ..models import User, UserCreate, Token, TokenData
 
 router = APIRouter(
@@ -19,7 +19,7 @@ router = APIRouter(
 # JWT Configuration
 SECRET_KEY = "your-secret-key"  # In production, use environment variable
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 400
 
 # OAuth2 scheme for token authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
@@ -34,7 +34,7 @@ def get_password_hash(password):
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 async def get_user(email: str):
-    users_db = MongoDB(USERS_COLLECTION)
+    users_db = CouchDB(USERS_COLLECTION)
     users = await users_db.query({"email": email})
     if users:
         return users[0]
@@ -100,7 +100,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 
 @router.post("/register", response_model=User)
 async def register_user(user: UserCreate):
-    users_db = MongoDB(USERS_COLLECTION)
+    users_db = CouchDB(USERS_COLLECTION)
     existing_users = await users_db.query({"email": user.email})
     if existing_users:
         raise HTTPException(

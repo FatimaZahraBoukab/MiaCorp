@@ -2,7 +2,7 @@ import "../styles.css"
 
 const Advantages = () => {
   return (
-    <section className="advantages">
+    <section id="advantages-section" className="advantages">
       <div className="container">
         <h2 className="advantages-title">
           Pourquoi les entrepreneurs choisissent <span className="highlight-purple">Mia</span>

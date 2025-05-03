@@ -18,16 +18,13 @@ const Footer = () => {
               complet, rapide et fiable.
             </p>
             <div className="footer-social">
-              <a href="#" className="social-link">
+              <a href="https://www.facebook.com/?locale=fr_FR" className="social-link">
                 <Facebook size={20} />
               </a>
-              <a href="#" className="social-link">
-                <Twitter size={20} />
-              </a>
-              <a href="#" className="social-link">
+              <a href="https://www.instagram.com/" className="social-link">
                 <Instagram size={20} />
               </a>
-              <a href="#" className="social-link">
+              <a href="https://www.linkedin.com/company/miacorp/" className="social-link">
                 <Linkedin size={20} />
               </a>
             </div>

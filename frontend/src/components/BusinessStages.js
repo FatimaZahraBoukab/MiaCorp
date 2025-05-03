@@ -1,8 +1,26 @@
+
+import React from "react";
+import { useNavigate } from "react-router-dom";
 import "../styles.css"
 
+
+
+
 const BusinessStages = () => {
+  const navigate = useNavigate();
+
+  const handleCreationClick = () => {
+    navigate("/business-creation");
+  };
+
+  const handleModificationClick = () => {
+    navigate("/business-modification");
+  };
+
+
+
   return (
-    <section className="business-stages">
+    <section id="services-section"className="business-stages">
       <div className="container">
         <h2 className="stages-title">
         Toujours à vos côtés pour simplifier votre <span className="highlight-purple1">gestion juridique.</span>
@@ -18,7 +36,9 @@ const BusinessStages = () => {
             Plus besoin de passer des heures : créez, adaptez et téléchargez vos documents juridiques en toute autonomie.
             </p>
             <div className="stage-button-container">
-              <button className="stage-button">En savoir plus</button>
+            <button className="stage-button" onClick={handleCreationClick}>
+                En savoir plus
+              </button>
             </div>
           </div>
 
@@ -31,7 +51,9 @@ const BusinessStages = () => {
             Un changement à déclarer ou un document à modifier ? Gérez toutes vos formalités juridiques en quelques clics, en toute sécurité.
             </p>
             <div className="stage-button-container">
-              <button className="stage-button">En savoir plus</button>
+            <button className="stage-button" onClick={handleModificationClick}>
+                En savoir plus
+              </button>
             </div>
           </div>
         </div>

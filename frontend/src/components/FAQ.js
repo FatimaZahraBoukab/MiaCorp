@@ -83,7 +83,7 @@ const FAQ = () => {
   }
 
   return (
-    <section className="faq-section">
+    <section  id="faq-section" className="faq-section">
       <div className="container">
         <h2 className="faq-title">
           <span className="highlight-purple">Questions</span> fréquentes

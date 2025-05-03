@@ -3,7 +3,7 @@ from typing import List, Optional
 import uuid
 from datetime import datetime
 
-from ..database import MongoDB
+from ..couchdb import CouchDB
 from ..models import User, UserCreate, Client, ClientCreate, ExpertJuridique, ExpertJuridiqueCreate
 from .auth import get_current_active_user, get_password_hash
 
@@ -29,7 +29,7 @@ async def read_users(
             detail="Not enough permissions"
         )
     
-    users_db = MongoDB(USERS_COLLECTION)
+    users_db = CouchDB(USERS_COLLECTION)
     users = await users_db.read_all(skip=skip, limit=limit)
     
     # Remove passwords from response
@@ -54,7 +54,7 @@ async def read_user(
             detail="Not enough permissions"
         )
     
-    users_db = MongoDB(USERS_COLLECTION)
+    users_db = CouchDB(USERS_COLLECTION)
     user = await users_db.get_by_id(user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -66,40 +66,38 @@ async def read_user(
 @router.put("/{user_id}", response_model=User)
 async def update_user(
     user_id: str,
-    user_update: UserCreate,
+    user_update: dict,
     current_user: dict = Depends(get_current_active_user)
 ):
-    # Only admin or the user themselves can update user details
+    # Vérification des permissions
     if current_user.get("role") != "admin" and current_user.get("id") != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions"
-        )
+        raise HTTPException(status_code=403, detail="Not authorized")
     
-    users_db = MongoDB(USERS_COLLECTION)
+    users_db = CouchDB(USERS_COLLECTION)
     existing_user = await users_db.get_by_id(user_id)
     if existing_user is None:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Update user fields
+    # Mise à jour uniquement des champs fournis
     updated_user = existing_user.copy()
-    updated_user["nom"] = user_update.nom
-    updated_user["prenom"] = user_update.prenom
-    updated_user["email"] = user_update.email
-    updated_user["telephone"] = user_update.telephone
+    for key, value in user_update.items():
+        if key != "mot_de_passe" and value is not None:
+            updated_user[key] = value
     
-    # Only update password if provided
-    if hasattr(user_update, "mot_de_passe") and user_update.mot_de_passe:
-        updated_user["mot_de_passe"] = get_password_hash(user_update.mot_de_passe)
+    # Traitement spécial pour le mot de passe
+    if "mot_de_passe" in user_update and user_update["mot_de_passe"]:
+        updated_user["mot_de_passe"] = get_password_hash(user_update["mot_de_passe"])
     
-    # Only admin can change role
-    if current_user.get("role") == "admin" and hasattr(user_update, "role"):
-        updated_user["role"] = user_update.role
+    # Seul l'admin peut changer le rôle
+    if current_user.get("role") != "admin" and "role" in user_update:
+        user_update.pop("role")  # Ignore le changement de rôle
     
     updated_user = await users_db.update(user_id, updated_user)
     
-    # Remove password from response
-    updated_user.pop("mot_de_passe", None)
+    # Retirer le mot de passe de la réponse
+    if updated_user:
+        updated_user.pop("mot_de_passe", None)
+    
     return updated_user
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -114,8 +112,11 @@ async def delete_user(
             detail="Not enough permissions"
         )
     
-    users_db = MongoDB(USERS_COLLECTION)
+    print(f"Tentative de suppression de l'utilisateur avec ID: {user_id}")
+    
+    users_db = CouchDB(USERS_COLLECTION)
     success = await users_db.delete(user_id)
+    
     if not success:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -124,7 +125,7 @@ async def delete_user(
 # Client specific endpoints
 @router.post("/clients/", response_model=Client)
 async def create_client(client: ClientCreate):
-    users_db = MongoDB(USERS_COLLECTION)
+    users_db = CouchDB(USERS_COLLECTION)
     existing_users = await users_db.query({"email": client.email})
     if existing_users:
         raise HTTPException(
@@ -168,7 +169,7 @@ async def create_expert(
             detail="Not enough permissions"
         )
     
-    users_db = MongoDB(USERS_COLLECTION)
+    users_db = CouchDB(USERS_COLLECTION)
     existing_users = await users_db.query({"email": expert.email})
     if existing_users:
         raise HTTPException(

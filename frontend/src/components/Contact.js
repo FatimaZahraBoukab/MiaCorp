@@ -9,6 +9,7 @@ const Contact = () => {
     firstName: "",
     lastName: "",
     email: "",
+    message: "",
   })
 
   const [formStatus, setFormStatus] = useState({
@@ -25,39 +26,53 @@ const Contact = () => {
     }))
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
 
-    // Validation simple
     if (!formData.firstName || !formData.lastName || !formData.email || !formData.message) {
       setFormStatus({
         submitted: false,
         error: true,
-        message: "",
+        message: "Veuillez remplir tous les champs.",
       })
       return
     }
 
-    // Simulation d'envoi de formulaire
-    setFormStatus({
-      submitted: true,
-      error: false,
-      message: "Votre message a été envoyé avec succès. Nous vous répondrons dans les plus brefs délais.",
-    })
+    try {
+      const res = await fetch("http://localhost:8000/contact/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      })
 
-    // Réinitialiser le formulaire après soumission
-    setFormData({
-      firstName: "",
-      lastName: "",
-      email: "",
-      message: "",
-    })
+      if (!res.ok) throw new Error("Erreur lors de l'envoi")
 
-    // Dans un cas réel, vous enverriez les données à votre backend ici
+      setFormStatus({
+        submitted: true,
+        error: false,
+        message: "Votre message a été envoyé avec succès. Nous vous répondrons dans les plus brefs délais.",
+      })
+
+      setFormData({
+        firstName: "",
+        lastName: "",
+        email: "",
+        message: "",
+      })
+    } catch (err) {
+      setFormStatus({
+        submitted: false,
+        error: true,
+        message: "Une erreur est survenue. Veuillez réessayer plus tard.",
+      })
+    }
   }
 
+
   return (
-    <section className="contact-section">
+    <section id="contact-section" className="contact-section">
       <div className="container">
         <div className="contact-container">
           <div className="contact-info">
@@ -233,3 +248,4 @@ const Contact = () => {
 }
 
 export default Contact
+
