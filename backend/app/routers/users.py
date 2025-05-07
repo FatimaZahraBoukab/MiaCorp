@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime
 
@@ -42,13 +42,48 @@ async def read_users(
 async def read_user_me(current_user: dict = Depends(get_current_active_user)):
     return current_user
 
+@router.put("/me", response_model=User)
+async def update_user_me(
+    user_update: Dict[str, Any],
+    current_user: dict = Depends(get_current_active_user)
+):
+    user_id = current_user.get("id")
+    
+    users_db = CouchDB(USERS_COLLECTION)
+    existing_user = await users_db.get_by_id(user_id)
+    if existing_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Mise à jour uniquement des champs fournis
+    updated_user = existing_user.copy()
+    for key, value in user_update.items():
+        if key != "mot_de_passe" and key != "email" and value is not None:
+            updated_user[key] = value
+    
+    # Traitement spécial pour le mot de passe
+    if "mot_de_passe" in user_update and user_update["mot_de_passe"]:
+        updated_user["mot_de_passe"] = get_password_hash(user_update["mot_de_passe"])
+    
+    # L'email ne peut pas être modifié directement pour des raisons de sécurité
+    if "email" in user_update:
+        # Ici, vous pourriez implémenter un processus de vérification d'email
+        pass
+    
+    updated_user = await users_db.update(user_id, updated_user)
+    
+    # Retirer le mot de passe de la réponse
+    if updated_user:
+        updated_user.pop("mot_de_passe", None)
+    
+    return updated_user
+
 @router.get("/{user_id}", response_model=User)
 async def read_user(
     user_id: str, 
     current_user: dict = Depends(get_current_active_user)
 ):
-    # Only admin or the user themselves can access user details
-    if current_user.get("role") != "admin" and current_user.get("id") != user_id:
+    # Admin, experts, or the user themselves can access user details
+    if current_user.get("role") != "admin" and current_user.get("role") != "expert" and current_user.get("id") != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions"
@@ -147,7 +182,8 @@ async def create_client(client: ClientCreate):
         "role": "client",
         "adresse": client.adresse,
         "entreprise": client.entreprise,
-        "siret": client.siret
+        "siret": client.siret,
+        "acceptEmails": client.acceptEmails if hasattr(client, "acceptEmails") else False
     }
     
     created_client = await users_db.create(new_client)

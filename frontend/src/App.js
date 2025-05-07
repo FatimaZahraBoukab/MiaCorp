@@ -1,6 +1,6 @@
 "use client"
 import { useEffect } from "react"
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom"
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom"
 import Header from "./components/Header"
 import Hero from "./components/Hero"
 import Steeps from "./components/Steeps"
@@ -13,10 +13,9 @@ import Contact from "./components/Contact"
 import Footer from "./components/Footer"
 import Login from "./pages/Login"
 import Register from "./pages/Register"
-import ClientWelcome from "./pages/ClientWelcome"
-import AdminDashboard from "./pages/AdminDashboard"
-
-import ExpertDashboard from "./pages/ExpertDashboard"
+import Client from "./Client"
+import AdminDashboard from "./Admin/AdminDashboard.js"
+import ExpertDashboard from "./Expert/expertDashboard.js"
 import CompanyTypeDetail from "./pages/CompanyTypeDetail"
 import BusinessCreation from "./pages/BusinessCreation"
 import BusinessModification from "./pages/BusinessModification"
@@ -24,15 +23,6 @@ import BusinessCreationInfo from "./pages/BusinessCreationInfo"
 import "./App.css"
 import "./styles.css"
 import "./styles-company-detail.css"
-
-
-// ...le reste de ton code
-
-// Composant pour protéger les routes
-const ProtectedRoute = ({ element }) => {
-  const token = localStorage.getItem("token")
-  return token ? element : <Navigate to="/login" />
-}
 
 // Composant pour gérer le défilement après la navigation
 const ScrollToSection = () => {
@@ -86,10 +76,9 @@ function App() {
         <Route path="/business-creation" element={<BusinessCreation />} />
         <Route path="/business-modification" element={<BusinessModification />} />
         <Route path="/business-creation-info" element={<BusinessCreationInfo />} />
-        <Route path="/client" element={<ProtectedRoute element={<ClientWelcome />} />} />
-        <Route path="/admin" element={<ProtectedRoute element={<AdminDashboard />} />} />
-        
-        <Route path="/expert" element={<ProtectedRoute element={<ExpertDashboard />} />} />
+        <Route path="/client/*" element={<Client />} />
+        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/expert" element={<ExpertDashboard />} />
       </Routes>
     </Router>
   )

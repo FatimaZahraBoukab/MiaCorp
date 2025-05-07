@@ -8,6 +8,7 @@ import jwt
 from pydantic import BaseModel
 from app.routers import users, auth, templates, entreprises
 from app.routers import contact
+from app.routers import documents_export
 
 
 # Initialize FastAPI app
@@ -28,6 +29,7 @@ app.add_middleware(
 
 app.include_router(templates.router)
 app.include_router(entreprises.router)
+
 
 # JWT Configuration
 SECRET_KEY = "your-secret-key"  # In production, use environment variable
@@ -52,6 +54,7 @@ from app.routers import users, auth
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(contact.router)
+app.include_router(documents_export.router)
 
 @app.get("/")
 async def root():

@@ -6,6 +6,7 @@ from datetime import datetime
 from ..couchdb import CouchDB
 from ..models import Entreprise, EntrepriseCreate
 from .auth import get_current_active_user
+from pydantic import BaseModel
 
 router = APIRouter(
     prefix="/entreprises",
@@ -13,18 +14,21 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
+# Ajoutez ce modèle au début du fichier
+class PieceIdentite(BaseModel):
+    content: str  # Base64
+    date_upload: datetime
+    statut: str
+
+class EntrepriseWithIdentity(Entreprise):
+    piece_identite: PieceIdentite
+
 ENTREPRISES_COLLECTION = "entreprises"
 DOCUMENTS_COLLECTION = "documents"
 
 @router.post("/", response_model=Entreprise)
 async def create_entreprise(
-    # Modifiez cette partie pour accepter des champs individuels au lieu d'un objet EntrepriseCreate
-    nom: str = Form(...),
     type: str = Form(...),
-    siret: str = Form(...),
-    adresse: str = Form(...),
-    capital: float = Form(...),
-    description: str = Form(...),
     template_id: str = Form(...),
     valeurs_variables: str = Form(...),  # Ceci sera une chaîne JSON
     piece_identite: UploadFile = File(...),
@@ -68,14 +72,9 @@ async def create_entreprise(
     # Créer l'entreprise
     new_entreprise = {
         "id": str(uuid.uuid4()),
-        "nom": nom,
         "type": type,
         "client_id": current_user["id"],
         "date_creation": datetime.now().isoformat(),
-        "siret": siret,
-        "adresse": adresse,
-        "capital": capital,
-        "description": description,
         "template_id": template_id,
         "valeurs_variables": valeurs_variables_dict,
         "piece_identite_id": document_id,
@@ -167,3 +166,33 @@ async def get_entreprises(
         entreprises = await db.read_all()
     
     return entreprises
+
+@router.get("/{entreprise_id}", response_model=EntrepriseWithIdentity)
+async def get_entreprise_by_id(
+    entreprise_id: str,
+    current_user: dict = Depends(get_current_active_user)
+):
+    if current_user["role"] not in ["expert", "admin"]:
+        raise HTTPException(status_code=403, detail="Permission refusée")
+    
+    entreprises_db = CouchDB(ENTREPRISES_COLLECTION)
+    documents_db = CouchDB(DOCUMENTS_COLLECTION)
+    
+    entreprise = await entreprises_db.get_by_id(entreprise_id)
+    if not entreprise:
+        raise HTTPException(status_code=404, detail="Entreprise non trouvée")
+    
+    # Récupérer la pièce d'identité associée
+    piece_identite = await documents_db.get_by_id(entreprise["piece_identite_id"])
+    if not piece_identite:
+        raise HTTPException(status_code=404, detail="Pièce d'identité non trouvée")
+    
+    # Convertir le contenu en base64 pour l'affichage
+    import base64
+    entreprise["piece_identite"] = {
+        "content": base64.b64encode(piece_identite["content"].encode('latin-1')).decode('utf-8'),
+        "date_upload": piece_identite["date_upload"],
+        "statut": piece_identite["statut"]
+    }
+    
+    return entreprise

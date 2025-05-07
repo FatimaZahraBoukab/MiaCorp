@@ -11,6 +11,7 @@ class UserBase(BaseModel):
     prenom: str
     email: EmailStr
     telephone: Optional[str] = None
+    acceptEmails: Optional[bool] = False
 
 class UserCreate(UserBase):
     mot_de_passe: str
@@ -65,15 +66,11 @@ class TypeEntreprise(str, Enum):
 
 class Entreprise(BaseModel):
     id: str
-    nom: str
     type: TypeEntreprise
     client_id: str
     date_creation: datetime
-    siret: Optional[str] = None
-    adresse: Optional[str] = None
-    capital: float
-    description: Optional[str] = None
     statut: str = "en_attente"  # en_attente, actif, inactif
+    valeurs_variables: Dict[str, str]
 
 class TemplateVariable(BaseModel):
     id: str
@@ -118,19 +115,11 @@ class Document(BaseModel):
     date_validation: Optional[datetime] = None
 
 class EntrepriseCreate(BaseModel):
-    nom: str
     type: TypeEntreprise
-    siret: Optional[str] = None
-    adresse: Optional[str] = None
-    capital: float
-    description: Optional[str] = None
     template_id: str
     valeurs_variables: Dict[str, str]
 
-
-
-
-    # Message de contact
+# Message de contact
 class ContactMessageCreate(BaseModel):
     firstName: str
     lastName: str
