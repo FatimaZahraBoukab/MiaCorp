@@ -32,6 +32,7 @@ async def create_entreprise(
     template_id: str = Form(...),
     valeurs_variables: str = Form(...),  # Ceci sera une chaîne JSON
     piece_identite: UploadFile = File(...),
+    document_index: Optional[int] = Form(0),
     current_user: dict = Depends(get_current_active_user)
 ):
     if current_user["role"] != "client":
@@ -40,13 +41,8 @@ async def create_entreprise(
     entreprises_db = CouchDB(ENTREPRISES_COLLECTION)
     documents_db = CouchDB(DOCUMENTS_COLLECTION)
     
-    # Vérifier que l'utilisateur n'a pas déjà une entreprise
-    existing_entreprises = await entreprises_db.query({"client_id": current_user["id"]})
-    if existing_entreprises:
-        raise HTTPException(
-            status_code=400,
-            detail="Vous avez déjà une entreprise enregistrée"
-        )
+    # Suppression de la vérification qui empêche la création de plusieurs entreprises
+    # Cette partie a été retirée pour permettre la création de plusieurs entreprises
     
     # Enregistrer la pièce d'identité
     piece_identite_content = await piece_identite.read()
@@ -85,8 +81,8 @@ async def create_entreprise(
     created_entreprise = await entreprises_db.create(new_entreprise)
     return created_entreprise
 
-@router.get("/me", response_model=Entreprise)
-async def get_my_entreprise(current_user: dict = Depends(get_current_active_user)):
+@router.get("/me", response_model=List[Entreprise])
+async def get_my_entreprises(current_user: dict = Depends(get_current_active_user)):
     if current_user["role"] != "client":
         raise HTTPException(status_code=403, detail="Seuls les clients peuvent accéder à cette information")
     
@@ -96,7 +92,7 @@ async def get_my_entreprise(current_user: dict = Depends(get_current_active_user
     if not entreprises:
         raise HTTPException(status_code=404, detail="Aucune entreprise trouvée")
     
-    return entreprises[0]
+    return entreprises
 
 @router.put("/{entreprise_id}/validate", response_model=Entreprise)
 async def validate_entreprise(
@@ -172,15 +168,19 @@ async def get_entreprise_by_id(
     entreprise_id: str,
     current_user: dict = Depends(get_current_active_user)
 ):
-    if current_user["role"] not in ["expert", "admin"]:
-        raise HTTPException(status_code=403, detail="Permission refusée")
-    
+    # Modification ici pour permettre aux clients de voir leurs propres entreprises
     entreprises_db = CouchDB(ENTREPRISES_COLLECTION)
     documents_db = CouchDB(DOCUMENTS_COLLECTION)
     
     entreprise = await entreprises_db.get_by_id(entreprise_id)
     if not entreprise:
         raise HTTPException(status_code=404, detail="Entreprise non trouvée")
+    
+    # Vérifier si l'utilisateur est autorisé à voir cette entreprise
+    if current_user["role"] not in ["expert", "admin"]:
+        # Si c'est un client, vérifier qu'il est bien le propriétaire de l'entreprise
+        if current_user["role"] == "client" and entreprise["client_id"] != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Permission refusée")
     
     # Récupérer la pièce d'identité associée
     piece_identite = await documents_db.get_by_id(entreprise["piece_identite_id"])
@@ -196,3 +196,75 @@ async def get_entreprise_by_id(
     }
     
     return entreprise
+
+@router.delete("/{entreprise_id}", status_code=204)
+async def delete_entreprise(
+    entreprise_id: str,
+    current_user: dict = Depends(get_current_active_user)
+):
+    """
+    Supprime une entreprise.
+    Seul le client propriétaire de l'entreprise peut la supprimer.
+    """
+    if current_user["role"] != "client":
+        raise HTTPException(status_code=403, detail="Seuls les clients peuvent supprimer leurs entreprises")
+    
+    db = CouchDB(ENTREPRISES_COLLECTION)
+    entreprise = await db.get_by_id(entreprise_id)
+    
+    if not entreprise:
+        raise HTTPException(status_code=404, detail="Entreprise non trouvée")
+    
+    # Vérifier que l'entreprise appartient bien à l'utilisateur
+    if entreprise["client_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Vous n'êtes pas autorisé à supprimer cette entreprise")
+    
+    # Vérifier si l'entreprise est déjà validée
+    if entreprise["statut"] == "validé":
+        raise HTTPException(
+            status_code=400, 
+            detail="Impossible de supprimer une entreprise validée. Veuillez contacter le support."
+        )
+    
+    # Supprimer l'entreprise
+    success = await db.delete(entreprise_id)
+    
+    if not success:
+        raise HTTPException(status_code=500, detail="Erreur lors de la suppression de l'entreprise")
+    
+    return None  # 204 No Content
+
+# Nouvel endpoint pour récupérer uniquement les commentaires de rejet d'une entreprise
+@router.get("/{entreprise_id}/rejection-comment", response_model=dict)
+async def get_rejection_comment(
+    entreprise_id: str,
+    current_user: dict = Depends(get_current_active_user)
+):
+    """
+    Récupère uniquement le commentaire de rejet d'une entreprise.
+    Le client propriétaire de l'entreprise peut accéder à cette information.
+    """
+    entreprises_db = CouchDB(ENTREPRISES_COLLECTION)
+    
+    entreprise = await entreprises_db.get_by_id(entreprise_id)
+    if not entreprise:
+        raise HTTPException(status_code=404, detail="Entreprise non trouvée")
+    
+    # Vérifier si l'utilisateur est autorisé à voir cette entreprise
+    if current_user["role"] not in ["expert", "admin"]:
+        # Si c'est un client, vérifier qu'il est bien le propriétaire de l'entreprise
+        if current_user["role"] == "client" and entreprise["client_id"] != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Permission refusée")
+    
+    # Vérifier si l'entreprise est rejetée
+    if entreprise["statut"] != "rejeté":
+        raise HTTPException(status_code=400, detail="Cette entreprise n'a pas été rejetée")
+    
+    return {
+        "id": entreprise["id"],
+        "nom": entreprise.get("nom", ""),
+        "type": entreprise["type"],
+        "statut": entreprise["statut"],
+        "date_rejet": entreprise.get("date_rejet", None),
+        "commentaires": entreprise.get("commentaires", "")
+    }

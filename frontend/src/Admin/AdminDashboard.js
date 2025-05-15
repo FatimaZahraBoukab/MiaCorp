@@ -5,18 +5,24 @@ import "./AdminDashboard.css"
 import UsersManager from "./components/UsersManager"
 import TemplatesManager from "./components/TemplatesManager"
 import InboxManager from "./components/Inbox"
-import SettingsManager from "./components/Settings"
+import AdminProfile from "./components/AdminProfile"
+import Dashboard from "./components/Dashboard"
+import { Users, FileText, Inbox, Menu, LogOut, LayoutDashboard, User } from "lucide-react"
 
 const AdminDashboard = () => {
   // State for active tab
-  const [activeTab, setActiveTab] = useState("templates")
+  const [activeTab, setActiveTab] = useState("dashboard")
 
   // State for sidebar
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // State for messages
   const [successMsg, setSuccessMsg] = useState("")
   const [errorMsg, setErrorMsg] = useState([])
+
+  // State for admin user
+  const [adminUser, setAdminUser] = useState(null)
 
   // Stats
   const [stats, setStats] = useState({
@@ -29,30 +35,39 @@ const AdminDashboard = () => {
     rejectedTemplates: 0,
   })
 
-  // State for theme
-  const [theme, setTheme] = useState(() => {
-    const savedTheme = localStorage.getItem("theme")
-    return savedTheme || "dark"
-  })
-
-  // Effect to apply theme
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme)
-    localStorage.setItem("theme", theme)
-  }, [theme])
-
-  // Toggle theme function
-  const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark")
-  }
-
-  // Vérifier si l'utilisateur est connecté
+  // Vérifier si l'utilisateur est connecté et récupérer ses informations
   useEffect(() => {
     const token = localStorage.getItem("token")
     if (!token) {
       setErrorMsg(["Vous devez être connecté avec un compte administrateur pour accéder à ce tableau de bord."])
+      return
     }
+
+    // Récupérer les informations de l'utilisateur connecté
+    fetchAdminProfile()
   }, [])
+
+  // Fonction pour récupérer le profil de l'administrateur
+  const fetchAdminProfile = async () => {
+    try {
+      const token = localStorage.getItem("token")
+      const response = await fetch("http://localhost:8000/users/me", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.ok) {
+        const userData = await response.json()
+        setAdminUser(userData)
+      } else {
+        const errorData = await response.json()
+        setErrorMsg([`Erreur lors de la récupération du profil: ${errorData.detail}`])
+      }
+    } catch (error) {
+      setErrorMsg([`Erreur de connexion au serveur: ${error.message}`])
+    }
+  }
 
   // Ajoutez un état pour stocker l'heure actuelle
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -81,17 +96,17 @@ const AdminDashboard = () => {
     })
   }
 
-  // Assurer que tous les SVG dans la barre latérale ont la bonne couleur
-  useEffect(() => {
-    // S'assurer que tous les icônes SVG utilisent la couleur bleue
-    const svgElements = document.querySelectorAll(".nav-icon, .metric-icon, .section-title-icon")
-    svgElements.forEach((svg) => {
-      svg.style.color = "var(--primary-color1)"
-    })
-  }, [])
-
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen)
+  }
+
+  const toggleMobileMenu = () => {
+    setMobileMenuOpen(!mobileMenuOpen)
+  }
+
+  // Exposer la fonction setActiveTab pour que le Dashboard puisse l'utiliser
+  window.setActiveTab = (tab) => {
+    setActiveTab(tab)
   }
 
   const updateStats = (templates, users) => {
@@ -111,390 +126,397 @@ const AdminDashboard = () => {
     })
   }
 
-  // Styles inline pour forcer les changements
-  const sidebarStyle = {
-    width: "250px",
-    minWidth: "250px",
+  // Fonction pour mettre à jour le profil de l'administrateur
+  const updateAdminProfile = async (updatedData) => {
+    try {
+      const token = localStorage.getItem("token")
+      const response = await fetch("http://localhost:8000/users/me", {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updatedData),
+      })
+
+      if (response.ok) {
+        const updatedUser = await response.json()
+        setAdminUser(updatedUser)
+        setSuccessMsg("Profil mis à jour avec succès !")
+
+        // Effacer le message après 3 secondes
+        setTimeout(() => {
+          setSuccessMsg("")
+        }, 3000)
+
+        return true
+      } else {
+        const errorData = await response.json()
+        setErrorMsg([`Erreur lors de la mise à jour du profil: ${errorData.detail}`])
+        return false
+      }
+    } catch (error) {
+      setErrorMsg([`Erreur de connexion au serveur: ${error.message}`])
+      return false
+    }
   }
 
-  const mainContentStyle = {
-    marginLeft: sidebarOpen ? "250px" : "0px", // Ajusté pour le toggle
+  // Fonction pour changer le mot de passe
+  const changePassword = async (currentPassword, newPassword) => {
+    try {
+      const token = localStorage.getItem("token")
+      const response = await fetch("http://localhost:8000/users/me/password", {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_password: newPassword,
+        }),
+      })
+
+      if (response.ok) {
+        setSuccessMsg("Mot de passe modifié avec succès !")
+
+        // Effacer le message après 3 secondes
+        setTimeout(() => {
+          setSuccessMsg("")
+        }, 3000)
+
+        return true
+      } else {
+        const errorData = await response.json()
+        setErrorMsg([`Erreur lors de la modification du mot de passe: ${errorData.detail}`])
+        return false
+      }
+    } catch (error) {
+      setErrorMsg([`Erreur de connexion au serveur: ${error.message}`])
+      return false
+    }
+  }
+
+  // Fonction pour mettre à jour l'avatar
+  const updateAvatar = async (avatarFile) => {
+    try {
+      const token = localStorage.getItem("token")
+      const formData = new FormData()
+      formData.append("avatar", avatarFile)
+
+      const response = await fetch("http://localhost:8000/users/me/avatar", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      })
+
+      if (response.ok) {
+        const updatedUser = await response.json()
+        setAdminUser(updatedUser)
+        setSuccessMsg("Avatar mis à jour avec succès !")
+
+        // Effacer le message après 3 secondes
+        setTimeout(() => {
+          setSuccessMsg("")
+        }, 3000)
+
+        return true
+      } else {
+        const errorData = await response.json()
+        setErrorMsg([`Erreur lors de la mise à jour de l'avatar: ${errorData.detail}`])
+        return false
+      }
+    } catch (error) {
+      setErrorMsg([`Erreur de connexion au serveur: ${error.message}`])
+      return false
+    }
+  }
+
+  // Obtenir les initiales de l'utilisateur pour l'avatar
+  const getUserInitials = () => {
+    if (adminUser) {
+      return `${adminUser.prenom?.[0] || ""}${adminUser.nom?.[0] || ""}`.toUpperCase()
+    }
+    return "A"
   }
 
   return (
-    <div className="admin-dashboard">
+    <div className="v0-admin-dashboard">
       {/* Sidebar */}
-      <div className={`sidebar ${sidebarOpen ? "" : "closed"}`} style={sidebarStyle}>
-        <div className="sidebar-header">
-          <div className="logo">
-            <span className="logo-text">MiaCorp</span>
+      <aside className={`v0-sidebar ${sidebarOpen ? "v0-open" : "v0-closed"}`}>
+        <div className="v0-sidebar-header">
+          <div className="v0-logo">
+            <span className="v0-logo-text">MiaCorp</span>
+          </div>
+
+          <div className="v0-sidebar-clock">
+            <div className="v0-date">{formatDate()}</div>
+            <div className="v0-time">{formatTime()}</div>
           </div>
         </div>
-        <ul className="nav-menu">
-          <li className="nav-item">
-            <a href="#" className="nav-link active">
-              <svg
-                className="nav-icon"
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="3" y="3" width="7" height="7"></rect>
-                <rect x="14" y="3" width="7" height="7"></rect>
-                <rect x="14" y="14" width="7" height="7"></rect>
-                <rect x="3" y="14" width="7" height="7"></rect>
-              </svg>
-              <span className="nav-text">Dashboard</span>
-            </a>
-          </li>
-          <li className="nav-item">
-            <a href="#" className="nav-link" onClick={() => setActiveTab("templates")}>
-              <svg
-                className="nav-icon"
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <polyline points="14 2 14 8 20 8"></polyline>
-                <line x1="16" y1="13" x2="8" y2="13"></line>
-                <line x1="16" y1="17" x2="8" y2="17"></line>
-                <polyline points="10 9 9 9 8 9"></polyline>
-              </svg>
-              <span className="nav-text">Templates</span>
-            </a>
-          </li>
-          <li className="nav-item">
-            <a href="#" className="nav-link" onClick={() => setActiveTab("users")}>
-              <svg
-                className="nav-icon"
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                <circle cx="9" cy="7" r="4"></circle>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-              </svg>
-              <span className="nav-text">Utilisateurs</span>
-            </a>
-          </li>
 
-          <li className="nav-item">
-            <a href="#" className="nav-link" onClick={() => setActiveTab("inbox")}>
-              <svg
-                className="nav-icon"
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+        <nav className="v0-sidebar-nav">
+          <ul className="v0-nav-list">
+            <li className="v0-nav-item">
+              <a
+                href="#"
+                className={`v0-nav-link ${activeTab === "dashboard" ? "v0-active" : ""}`}
+                onClick={() => setActiveTab("dashboard")}
               >
-                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                <polyline points="22,6 12,13 2,6"></polyline>
-              </svg>
-              <span className="nav-text">Boîte de réception</span>
-            </a>
-          </li>
+                <LayoutDashboard size={20} />
+                <span>Dashboard</span>
+              </a>
+            </li>
+            <li className="v0-nav-item">
+              <a
+                href="#"
+                className={`v0-nav-link ${activeTab === "templates" ? "v0-active" : ""}`}
+                onClick={() => setActiveTab("templates")}
+              >
+                <FileText size={20} />
+                <span>Templates</span>
+              </a>
+            </li>
+            <li className="v0-nav-item">
+              <a
+                href="#"
+                className={`v0-nav-link ${activeTab === "users" ? "v0-active" : ""}`}
+                onClick={() => setActiveTab("users")}
+              >
+                <Users size={20} />
+                <span>Utilisateurs</span>
+              </a>
+            </li>
+            <li className="v0-nav-item">
+              <a
+                href="#"
+                className={`v0-nav-link ${activeTab === "inbox" ? "v0-active" : ""}`}
+                onClick={() => setActiveTab("inbox")}
+              >
+                <Inbox size={20} />
+                <span>Boîte de réception</span>
+              </a>
+            </li>
+            <li className="v0-nav-item">
+              <a
+                href="#"
+                className={`v0-nav-link ${activeTab === "profile" ? "v0-active" : ""}`}
+                onClick={() => setActiveTab("profile")}
+              >
+                <User size={20} />
+                <span>Mon Profil</span>
+              </a>
+            </li>
+          </ul>
+        </nav>
 
-          <li className="nav-item">
-            <a href="#" className="nav-link" onClick={() => setActiveTab("settings")}>
-              <svg
-                className="nav-icon"
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+        <div className="v0-sidebar-footer">
+          <div className="v0-user-profile">
+            <div className="v0-user-info">
+              <a
+                href="#"
+                className="v0-logout-link"
+                onClick={() => {
+                  localStorage.removeItem("token")
+                  window.location.href = "/login"
+                }}
               >
-                <circle cx="12" cy="12" r="3"></circle>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-              </svg>
-              <span className="nav-text">Paramètres</span>
-            </a>
-          </li>
-          <li className="nav-item" style={{ marginTop: "auto" }}>
-            <a
-              href="#"
-              className="nav-link"
-              onClick={() => {
-                localStorage.removeItem("token")
-                window.location.href = "/login"
-              }}
-            >
-              <svg
-                className="nav-icon"
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                <polyline points="16 17 21 12 16 7"></polyline>
-                <line x1="21" y1="12" x2="9" y2="12"></line>
-              </svg>
-              <span className="nav-text">Déconnexion</span>
-            </a>
-          </li>
-        </ul>
-      </div>
+                <LogOut size={16} />
+                <span>Déconnexion</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </aside>
 
       {/* Main Content */}
-      <div className="main-content" style={mainContentStyle}>
+      <main className="v0-main-content">
         {/* Header */}
-        <div className="page-header">
-          <div>
-            <h1 className="page-title">Tableau de bord administrateur</h1>
-            <div className="datetime-display">
-              <span className="date">{formatDate()}</span>
-              <span className="time">{formatTime()}</span>
-            </div>
-          </div>
-          <div className="header-actions">
-            <button className="tab-button" onClick={toggleTheme}>
-              {theme === "dark" ? (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <circle cx="12" cy="12" r="5"></circle>
-                  <line x1="12" y1="1" x2="12" y2="3"></line>
-                  <line x1="12" y1="21" x2="12" y2="23"></line>
-                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-                  <line x1="1" y1="12" x2="3" y2="12"></line>
-                  <line x1="21" y1="12" x2="23" y2="12"></line>
-                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-                </svg>
-              ) : (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-                </svg>
-              )}
-            </button>
-            <button className="tab-button" onClick={toggleSidebar}>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <line x1="3" y1="12" x2="21" y2="12"></line>
-                <line x1="3" y1="6" x2="21" y2="6"></line>
-                <line x1="3" y1="18" x2="21" y2="18"></line>
-              </svg>
+        <header className="v0-header">
+          <div className="v0-header-left">
+            <button className="v0-menu-toggle" onClick={toggleSidebar}>
+              <Menu size={24} />
             </button>
           </div>
+
+          <div className="v0-header-right">
+            <div className="v0-user-profile">
+              <div
+                className="v0-avatar v0-avatar-clickable"
+                onClick={() => setActiveTab("profile")}
+                title="Voir mon profil"
+              >
+                {adminUser && adminUser.avatar ? (
+                  <img src={adminUser.avatar || "/placeholder.svg"} alt="Avatar" className="v0-avatar-image" />
+                ) : (
+                  <span>{getUserInitials()}</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Mobile Menu Toggle */}
+        <div className="v0-mobile-menu-container">
+          <button className="v0-mobile-menu-toggle" onClick={toggleMobileMenu}>
+            <span>Menu</span>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={mobileMenuOpen ? "v0-rotate" : ""}
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
+
+          {mobileMenuOpen && (
+            <div className="v0-mobile-menu">
+              <a
+                href="#"
+                className={activeTab === "dashboard" ? "v0-active" : ""}
+                onClick={() => {
+                  setActiveTab("dashboard")
+                  setMobileMenuOpen(false)
+                }}
+              >
+                Dashboard
+              </a>
+              <a
+                href="#"
+                className={activeTab === "templates" ? "v0-active" : ""}
+                onClick={() => {
+                  setActiveTab("templates")
+                  setMobileMenuOpen(false)
+                }}
+              >
+                Templates
+              </a>
+              <a
+                href="#"
+                className={activeTab === "users" ? "v0-active" : ""}
+                onClick={() => {
+                  setActiveTab("users")
+                  setMobileMenuOpen(false)
+                }}
+              >
+                Utilisateurs
+              </a>
+              <a
+                href="#"
+                className={activeTab === "inbox" ? "v0-active" : ""}
+                onClick={() => {
+                  setActiveTab("inbox")
+                  setMobileMenuOpen(false)
+                }}
+              >
+                Boîte de réception
+              </a>
+              <a
+                href="#"
+                className={activeTab === "profile" ? "v0-active" : ""}
+                onClick={() => {
+                  setActiveTab("profile")
+                  setMobileMenuOpen(false)
+                }}
+              >
+                Mon Profil
+              </a>
+            </div>
+          )}
         </div>
 
-        {successMsg && <div className="success-message">{successMsg}</div>}
-        {errorMsg.length > 0 && (
-          <div className="error-message">
-            {errorMsg.map((msg, index) => (
-              <p key={index}>{msg}</p>
-            ))}
+        {/* Notifications */}
+        <div className="v0-notifications-container">
+          {successMsg && <div className="v0-notification v0-success">{successMsg}</div>}
+          {errorMsg.length > 0 && (
+            <div className="v0-notification v0-error">
+              {errorMsg.map((msg, index) => (
+                <p key={index}>{msg}</p>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Afficher les statistiques sur toutes les pages sauf le profil et le dashboard */}
+        {activeTab !== "profile" && activeTab !== "dashboard" && (
+          <div className="v0-stats-grid">
+            <div className="v0-stat-card">
+              <div className="v0-stat-icon">
+                <FileText size={24} />
+              </div>
+              <div className="v0-stat-content">
+                <span className="v0-stat-value">{stats.totalTemplates}</span>
+                <span className="v0-stat-label">Templates</span>
+              </div>
+            </div>
+
+            <div className="v0-stat-card">
+              <div className="v0-stat-icon">
+                <Users size={24} />
+              </div>
+              <div className="v0-stat-content">
+                <span className="v0-stat-value">{stats.totalUsers}</span>
+                <span className="v0-stat-label">Utilisateurs</span>
+              </div>
+            </div>
+
+            <div className="v0-stat-card">
+              <div className="v0-stat-icon v0-active">
+                <Users size={24} />
+              </div>
+              <div className="v0-stat-content">
+                <span className="v0-stat-value">{stats.activeUsers}</span>
+                <span className="v0-stat-label">Utilisateurs actifs</span>
+              </div>
+            </div>
+
+            <div className="v0-stat-card">
+              <div className="v0-stat-icon v0-inactive">
+                <Users size={24} />
+              </div>
+              <div className="v0-stat-content">
+                <span className="v0-stat-value">{stats.inactiveUsers}</span>
+                <span className="v0-stat-label">Utilisateurs inactifs</span>
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Metrics Overview */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
-            gap: "0.75rem",
-          }}
-        >
-          <div className="metric-card" style={{ padding: "0.75rem", fontSize: "0.9rem" }}>
-            <div className="metric-header">
-              <span className="metric-title">Templates</span>
-              <svg
-                className="metric-icon"
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <polyline points="14 2 14 8 20 8"></polyline>
-                <line x1="16" y1="13" x2="8" y2="13"></line>
-                <line x1="16" y1="17" x2="8" y2="17"></line>
-                <polyline points="10 9 9 9 8 9"></polyline>
-              </svg>
-            </div>
-            <div className="metric-value" style={{ fontSize: "1.5rem", marginBottom: "0.25rem" }}>
-              {stats.totalTemplates}
-            </div>
-            <div className="metric-subtitle" style={{ fontSize: "0.7rem" }}>
-              Templates
-            </div>
-          </div>
+        {/* Tab Content */}
+        <div className="v0-tab-content">
+          {activeTab === "dashboard" && <Dashboard stats={stats} />}
 
-          <div className="metric-card" style={{ padding: "0.75rem", fontSize: "0.9rem" }}>
-            <div className="metric-header">
-              <span className="metric-title">Utilisateurs</span>
-              <svg
-                className="metric-icon"
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                <circle cx="9" cy="7" r="4"></circle>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-              </svg>
-            </div>
-            <div className="metric-value" style={{ fontSize: "1.5rem", marginBottom: "0.25rem" }}>
-              {stats.totalUsers}
-            </div>
-            <div className="metric-subtitle" style={{ fontSize: "0.7rem" }}>
-              Utilisateurs
-            </div>
-          </div>
+          {activeTab === "templates" && (
+            <TemplatesManager setSuccessMsg={setSuccessMsg} setErrorMsg={setErrorMsg} updateStats={updateStats} />
+          )}
 
-          <div className="metric-card" style={{ padding: "0.75rem", fontSize: "0.9rem" }}>
-            <div className="metric-header">
-              <span className="metric-title">Actifs</span>
-              <svg
-                className="metric-icon"
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-              </svg>
-            </div>
-            <div className="metric-value" style={{ fontSize: "1.5rem", marginBottom: "0.25rem" }}>
-              {stats.activeUsers}
-            </div>
-            <div className="metric-subtitle" style={{ fontSize: "0.7rem" }}>
-              Avec accès
-            </div>
-          </div>
+          {activeTab === "users" && (
+            <UsersManager setSuccessMsg={setSuccessMsg} setErrorMsg={setErrorMsg} updateStats={updateStats} />
+          )}
 
-          <div className="metric-card" style={{ padding: "0.75rem", fontSize: "0.9rem" }}>
-            <div className="metric-header">
-              <span className="metric-title">Inactifs</span>
-              <svg
-                className="metric-icon"
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="15" y1="9" x2="9" y2="15"></line>
-                <line x1="9" y1="9" x2="15" y2="15"></line>
-              </svg>
-            </div>
-            <div className="metric-value" style={{ fontSize: "1.5rem", marginBottom: "0.25rem" }}>
-              {stats.inactiveUsers}
-            </div>
-            <div className="metric-subtitle" style={{ fontSize: "0.7rem" }}>
-              Sans accès
-            </div>
-          </div>
+          {activeTab === "inbox" && <InboxManager />}
+
+          {activeTab === "profile" && (
+            <AdminProfile
+              admin={adminUser}
+              updateProfile={updateAdminProfile}
+              changePassword={changePassword}
+              updateAvatar={updateAvatar}
+              setSuccessMsg={setSuccessMsg}
+              setErrorMsg={setErrorMsg}
+            />
+          )}
         </div>
-
-        {/* Tabs */}
-        <div className="tabs">
-          <button
-            className={activeTab === "templates" ? "tab-button active" : "tab-button"}
-            onClick={() => setActiveTab("templates")}
-          >
-            Gestion des Templates
-          </button>
-          <button
-            className={activeTab === "users" ? "tab-button active" : "tab-button"}
-            onClick={() => setActiveTab("users")}
-          >
-            Gestion des Utilisateurs
-          </button>
-          <button
-            className={activeTab === "inbox" ? "tab-button active" : "tab-button"}
-            onClick={() => setActiveTab("inbox")}
-          >
-            Boîte de réception
-          </button>
-          <button
-            className={activeTab === "settings" ? "tab-button active" : "tab-button"}
-            onClick={() => setActiveTab("settings")}
-          >
-            Paramètres
-          </button>
-        </div>
-
-        {/* Active Tab Content */}
-        {activeTab === "templates" && (
-          <TemplatesManager setSuccessMsg={setSuccessMsg} setErrorMsg={setErrorMsg} updateStats={updateStats} />
-        )}
-
-        {activeTab === "users" && (
-          <UsersManager setSuccessMsg={setSuccessMsg} setErrorMsg={setErrorMsg} updateStats={updateStats} />
-        )}
-
-        {activeTab === "inbox" && <InboxManager />}
-
-        {activeTab === "settings" && <SettingsManager />}
-      </div>
+      </main>
     </div>
   )
 }

@@ -63,6 +63,7 @@ class TypeEntreprise(str, Enum):
     SAS = "SAS"
     SARL = "SARL"
     SASU = "SASU"
+    EURL = "EURL"
 
 class Entreprise(BaseModel):
     id: str
@@ -80,24 +81,30 @@ class TemplateVariable(BaseModel):
     obligatoire: bool = True
     valeur_defaut: Optional[str] = None
 
+class GoogleDocument(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    titre: str
+    google_doc_id: str
+    google_doc_url: str
+    variables: Optional[List[TemplateVariable]] = []
+
 class DocumentTemplate(BaseModel):
     id: str
     titre: str
     description: Optional[str] = None
     type_entreprise: TypeEntreprise
-    google_doc_id: str
-    google_doc_url: str  # URL complète
+    documents: List[GoogleDocument]  # Remplace google_doc_id et google_doc_url
     variables: List[TemplateVariable]
     est_actif: bool = True
     statut: str = "en_attente"
     date_creation: datetime
 
+# Modifiez la classe DocumentTemplateCreate
 class DocumentTemplateCreate(BaseModel):
     titre: str
     description: Optional[str] = None
     type_entreprise: TypeEntreprise
-    google_doc_id: str
-    #variables: Optional[List[TemplateVariable]] 
+    documents: List[GoogleDocument]  # Remplace google_doc_id
 
 
 class Document(BaseModel):

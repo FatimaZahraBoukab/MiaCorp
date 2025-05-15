@@ -1,21 +1,31 @@
 "use client"
 
+import React from "react"
+
 import { useState } from "react"
 import axios from "axios"
+import { FileText, Eye } from "lucide-react"
+import "../template-table.css"
 
-const ControleTemplate = ({ templates, fetchTemplates, setSuccessMsg, setErrorMsg }) => {
+const ControleTemplateV5 = ({ templates, fetchTemplates, setSuccessMsg, setErrorMsg }) => {
   const [selectedTemplate, setSelectedTemplate] = useState(null)
   const [templateVariables, setTemplateVariables] = useState([])
   const [comments, setComments] = useState("")
+  const [selectedDocumentIndex, setSelectedDocumentIndex] = useState(0)
+  const [documentContent, setDocumentContent] = useState(null)
+  const [isLoading, setIsLoading] = useState(false)
 
-  const fetchTemplateContent = async (templateId) => {
+  const fetchTemplateContent = async (templateId, docIndex = 0) => {
     try {
+      setIsLoading(true)
       const token = localStorage.getItem("token")
       if (!token) {
         setErrorMsg(["Vous devez être connecté pour accéder au contenu du template"])
+        setIsLoading(false)
         return
       }
       const response = await axios.get(`http://localhost:8000/templates/${templateId}/content`, {
+        params: { document_index: docIndex },
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -23,11 +33,12 @@ const ControleTemplate = ({ templates, fetchTemplates, setSuccessMsg, setErrorMs
 
       // Mettre à jour les variables du template
       setTemplateVariables(response.data.variables || [])
-
+      setIsLoading(false)
       return response.data.content
     } catch (error) {
       console.error("Erreur lors de la récupération du contenu du template:", error)
       handleApiError(error)
+      setIsLoading(false)
       return null
     }
   }
@@ -114,7 +125,7 @@ const ControleTemplate = ({ templates, fetchTemplates, setSuccessMsg, setErrorMs
 
       if (updatedTemplate) {
         // Mettre à jour le template sélectionné avec son contenu
-        const content = await fetchTemplateContent(templateId)
+        const content = await fetchTemplateContent(templateId, selectedDocumentIndex)
         setSelectedTemplate({
           ...updatedTemplate,
           content: content,
@@ -143,15 +154,29 @@ const ControleTemplate = ({ templates, fetchTemplates, setSuccessMsg, setErrorMs
 
   const handleSelectTemplate = async (template) => {
     setSelectedTemplate(template)
+    setSelectedDocumentIndex(0) // Réinitialiser à la première position
 
-    // Récupérer le contenu du template
-    const content = await fetchTemplateContent(template.id)
+    // Récupérer le contenu du premier document du template
+    const content = await fetchTemplateContent(template.id, 0)
     if (content) {
       // Mettre à jour le template sélectionné avec son contenu
       setSelectedTemplate({
         ...template,
         content: content,
       })
+    }
+  }
+
+  const handleSelectDocument = async (index) => {
+    setSelectedDocumentIndex(index)
+    if (selectedTemplate) {
+      const content = await fetchTemplateContent(selectedTemplate.id, index)
+      if (content) {
+        setSelectedTemplate({
+          ...selectedTemplate,
+          content: content,
+        })
+      }
     }
   }
 
@@ -168,154 +193,248 @@ const ControleTemplate = ({ templates, fetchTemplates, setSuccessMsg, setErrorMs
     window.open(url, "_blank")
   }
 
-  return (
-    <div className="templates-containerE">
-      {selectedTemplate ? (
-        <div className="template-detail">
-          <div className="template-detail-header">
-            <h2>{selectedTemplate.titre}</h2>
-            <button className="back-btn" onClick={() => setSelectedTemplate(null)}>
-              Retour à la liste
-            </button>
-          </div>
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case "en_attente":
+        return "En attente"
+      case "validé":
+        return "Validé"
+      case "rejeté":
+        return "Rejeté"
+      default:
+        return "Inconnu"
+    }
+  }
 
-          <div className="template-detail-info">
-            <div className="info-group">
-              <span className="info-label">Type d'entreprise:</span>
-              <span className="info-value">{selectedTemplate.type_entreprise}</span>
-            </div>
-            <div className="info-group">
-              <span className="info-label">Date de création:</span>
-              <span className="info-value">{new Date(selectedTemplate.date_creation).toLocaleDateString("fr-FR")}</span>
-            </div>
-            <div className="info-group">
-              <span className="info-label">Statut:</span>
-              <span className={`status-badge ${selectedTemplate.statut}`}>
-                {selectedTemplate.statut === "en_attente"
-                  ? "En attente"
-                  : selectedTemplate.statut === "validé"
-                    ? "Validé"
-                    : "Rejeté"}
-              </span>
-            </div>
-          </div>
+  return React.createElement(
+    "div",
+    { className: "v5-templates-container" },
+    selectedTemplate
+      ? React.createElement(
+          "div",
+          { className: "v5-template-detail" },
+          React.createElement(
+            "div",
+            { className: "v5-template-detail-header" },
+            React.createElement("h2", null, selectedTemplate.titre),
+            React.createElement(
+              "button",
+              {
+                className: "v5-back-btn",
+                onClick: () => setSelectedTemplate(null),
+              },
+              "Retour à la liste",
+            ),
+          ),
 
-          <div className="template-detail-content">
-            <h3>Description</h3>
-            <p>{selectedTemplate.description || "Aucune description disponible."}</p>
+          React.createElement(
+            "div",
+            { className: "v5-template-info-grid" },
+            React.createElement(
+              "div",
+              { className: "v5-template-info-item" },
+              React.createElement("span", { className: "v5-template-info-label" }, "Type d'entreprise:"),
+              React.createElement("span", { className: "v5-template-info-value" }, selectedTemplate.type_entreprise),
+            ),
+            React.createElement(
+              "div",
+              { className: "v5-template-info-item" },
+              React.createElement("span", { className: "v5-template-info-label" }, "Date de création:"),
+              React.createElement(
+                "span",
+                { className: "v5-template-info-value" },
+                new Date(selectedTemplate.date_creation).toLocaleDateString("fr-FR"),
+              ),
+            ),
+            React.createElement(
+              "div",
+              { className: "v5-template-info-item" },
+              React.createElement("span", { className: "v5-template-info-label" }, "Statut:"),
+              React.createElement(
+                "span",
+                {
+                  className: `v5-template-status v5-${selectedTemplate.statut}`,
+                },
+                getStatusLabel(selectedTemplate.statut),
+              ),
+            ),
+          ),
 
-            <h3>Variables du template</h3>
-            {templateVariables.length > 0 ? (
-              <div className="variables-list">
-                {templateVariables.map((variable, index) => (
-                  <div key={index} className="variable-item">
-                    <span className="variable-name">{`{{${variable.nom}}}`}</span>
-                    <span className="variable-type">{variable.type}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p>Aucune variable trouvée dans ce template.</p>
-            )}
+          React.createElement(
+            "div",
+            { className: "v5-template-section" },
+            React.createElement("h3", null, "Description"),
+            React.createElement("p", null, selectedTemplate.description || "Aucune description disponible."),
+          ),
 
-            <h3>Contenu du document</h3>
-            <div className="document-preview">
-              <div className="preview-actions">
-                <button className="preview-btn" onClick={() => openGoogleDoc(selectedTemplate.google_doc_id)}>
-                  Ouvrir dans Google Docs
-                </button>
-              </div>
-              {selectedTemplate.content ? (
-                <div className="document-content">
-                  <pre>{selectedTemplate.content}</pre>
-                </div>
-              ) : (
-                <p>Chargement du contenu...</p>
-              )}
-            </div>
+          React.createElement(
+            "div",
+            { className: "v5-template-section" },
+            React.createElement("h3", null, "Documents du template"),
+            selectedTemplate.documents && selectedTemplate.documents.length > 0
+              ? React.createElement(
+                  "div",
+                  { className: "v5-documents-list" },
+                  selectedTemplate.documents.map((doc, index) =>
+                    React.createElement(
+                      "div",
+                      {
+                        key: index,
+                        className: `v5-document-item ${selectedDocumentIndex === index ? "v5-active" : ""}`,
+                        onClick: () => handleSelectDocument(index),
+                      },
+                      React.createElement(
+                        "span",
+                        { className: "v5-document-title" },
+                        doc.titre || `Document ${index + 1}`,
+                      ),
+                      React.createElement(
+                        "button",
+                        {
+                          className: "v5-template-action-btn",
+                          onClick: (e) => {
+                            e.stopPropagation() // Empêcher le déclenchement du onClick parent
+                            openGoogleDoc(doc.google_doc_id)
+                          },
+                        },
+                        "Ouvrir dans Google Docs",
+                      ),
+                    ),
+                  ),
+                )
+              : React.createElement("p", null, "Aucun document trouvé dans ce template."),
+          ),
 
-            <h3>Commentaires</h3>
-            <textarea
-              value={comments}
-              onChange={(e) => setComments(e.target.value)}
-              placeholder="Ajoutez vos commentaires ici..."
-              rows={4}
-              className="comments-textarea"
-            ></textarea>
+          React.createElement(
+            "div",
+            { className: "v5-template-section" },
+            React.createElement("h3", null, "Contenu du document"),
+            React.createElement(
+              "div",
+              { className: "v5-document-preview" },
+              isLoading
+                ? React.createElement("p", null, "Chargement du contenu...")
+                : selectedTemplate.content
+                  ? React.createElement(
+                      "div",
+                      { className: "v5-document-content" },
+                      React.createElement("pre", null, selectedTemplate.content),
+                    )
+                  : React.createElement("p", null, "Sélectionnez un document pour voir son contenu."),
+            ),
+          ),
 
-            <div className="template-actions">
-              <button
-                className="validate-btn"
-                onClick={() => handleValidateTemplate(selectedTemplate.id)}
-                disabled={selectedTemplate.statut !== "en_attente"}
-              >
-                Valider le template
-              </button>
-              <button
-                className="reject-btn"
-                onClick={() => handleRejectTemplate(selectedTemplate.id)}
-                disabled={selectedTemplate.statut !== "en_attente"}
-              >
-                Rejeter le template
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="templates-list">
-          <h2 className="section-title">
-            <svg
-              className="section-title-icon"
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-              <polyline points="10 9 9 9 8 9"></polyline>
-            </svg>
-            Templates à vérifier
-          </h2>
-          {templates.length === 0 ? (
-            <p>Aucun template disponible avec le filtre sélectionné</p>
-          ) : (
-            <div className="templates-grid">
-              {templates.map((template) => (
-                <div className={`template-card ${template.statut}`} key={template.id}>
-                  <div className="template-header">
-                    <h3>{template.titre}</h3>
-                    <span className={`status-badge ${template.statut}`}>
-                      {template.statut === "en_attente"
-                        ? "En attente"
-                        : template.statut === "validé"
-                          ? "Validé"
-                          : "Rejeté"}
-                    </span>
-                  </div>
-                  <p>{template.description || "Aucune description"}</p>
-                  <p>Type: {template.type_entreprise}</p>
-                  <p>Créé le: {new Date(template.date_creation).toLocaleDateString("fr-FR")}</p>
-                  <div className="template-actions">
-                    <button className="view-btn" onClick={() => handleSelectTemplate(template)}>
-                      Examiner
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+          React.createElement(
+            "div",
+            { className: "v5-template-section" },
+            React.createElement("h3", null, "Commentaires"),
+            React.createElement("textarea", {
+              value: comments,
+              onChange: (e) => setComments(e.target.value),
+              placeholder: "Ajoutez vos commentaires ici...",
+              rows: 4,
+              className: "v5-comments-textarea",
+            }),
+
+            React.createElement(
+              "div",
+              { className: "v5-template-actions" },
+              React.createElement(
+                "button",
+                {
+                  className: "v5-validate-btn",
+                  onClick: () => handleValidateTemplate(selectedTemplate.id),
+                  disabled: selectedTemplate.statut !== "en_attente",
+                },
+                "Valider le template",
+              ),
+              React.createElement(
+                "button",
+                {
+                  className: "v5-reject-btn",
+                  onClick: () => handleRejectTemplate(selectedTemplate.id),
+                  disabled: selectedTemplate.statut !== "en_attente",
+                },
+                "Rejeter le template",
+              ),
+            ),
+          ),
+        )
+      : React.createElement(
+          "div",
+          null,
+          React.createElement(
+            "div",
+            { className: "v5-templates-header" },
+            React.createElement(
+              "h2",
+              { className: "v5-templates-title" },
+              React.createElement(FileText, { size: 24 }),
+              "Templates à vérifier",
+            ),
+          ),
+
+          templates.length === 0
+            ? React.createElement(
+                "div",
+                { className: "v5-empty-state" },
+                React.createElement("p", null, "Aucun template disponible avec le filtre sélectionné"),
+              )
+            : React.createElement(
+                "table",
+                { className: "v5-templates-table" },
+                React.createElement(
+                  "thead",
+                  null,
+                  React.createElement(
+                    "tr",
+                    null,
+                    React.createElement("th", null, "Titre"),
+                    React.createElement("th", null, "Type d'entreprise"),
+                    React.createElement("th", null, "Date de création"),
+                    React.createElement("th", { className: "v5-status-cell" }, "Statut"),
+                    React.createElement("th", { className: "v5-actions-cell" }, "Actions"),
+                  ),
+                ),
+                React.createElement(
+                  "tbody",
+                  null,
+                  templates.map((template) =>
+                    React.createElement(
+                      "tr",
+                      { key: template.id },
+                      React.createElement("td", null, template.titre),
+                      React.createElement("td", null, template.type_entreprise),
+                      React.createElement("td", null, new Date(template.date_creation).toLocaleDateString("fr-FR")),
+                      React.createElement(
+                        "td",
+                        { className: "v5-status-cell" },
+                        React.createElement(
+                          "span",
+                          {
+                            className: `v5-template-status v5-${template.statut}`,
+                          },
+                          getStatusLabel(template.statut),
+                        ),
+                      ),
+                      React.createElement(
+                        "td",
+                        { className: "v5-actions-cell" },
+                        React.createElement(
+                          "button",
+                          {
+                            className: "v5-template-action-btn",
+                            onClick: () => handleSelectTemplate(template),
+                          },
+                          React.createElement(Eye, { size: 16, className: "v5-action-icon" }),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+        ),
   )
 }
 
-export default ControleTemplate
+export default ControleTemplateV5

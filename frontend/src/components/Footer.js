@@ -55,6 +55,9 @@ const Footer = () => {
                 <li>
                   <a href="#">SASU</a>
                 </li>
+                <li>
+                  <a href="#">EURL</a>
+                </li>
               </ul>
             </div>
 

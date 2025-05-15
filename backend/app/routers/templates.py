@@ -124,41 +124,52 @@ async def create_template(template: DocumentTemplateCreate, current_user=Depends
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    # Extraire l'ID du document à partir de l'URL
-    doc_id = extract_doc_id_from_url(template.google_doc_id)
+    # Pour stocker tous les documents avec leurs variables
+    documents_with_variables = []
+    all_variables = set()  # Pour conserver toutes les variables (optionnel)
     
-    try:
-        variable_names = extract_variables_from_doc(doc_id)
-    except Exception as e:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Impossible d'extraire les variables du document: {str(e)}"
-        )
-    
-    variables = []
-    for var in variable_names:
-        var_name = var.strip()
-        var_type = detect_variable_type(var_name)
+    for doc in template.documents:
+        # Extraire l'ID du document à partir de l'URL
+        doc_id = extract_doc_id_from_url(doc.google_doc_id)
         
-        variable = {
-            "id": str(uuid.uuid4()),
-            "nom": var_name,
-            "type": var_type,
-            "obligatoire": True
-        }
-        
-        # Enrichir avec des valeurs par défaut et des descriptions
-        variable = enrich_variable_template(variable)
-        variables.append(variable)
+        try:
+            variable_names = extract_variables_from_doc(doc_id)
+            doc_variables = []
+            
+            for var_name in variable_names:
+                var_name = var_name.strip()
+                all_variables.add(var_name)  # Ajouter à l'ensemble global
+                
+                var_type = detect_variable_type(var_name)
+                variable = {
+                    "id": str(uuid.uuid4()),
+                    "nom": var_name,
+                    "type": var_type,
+                    "obligatoire": True
+                }
+                
+                # Enrichir avec des valeurs par défaut et des descriptions
+                variable = enrich_variable_template(variable)
+                doc_variables.append(variable)
+            
+            # Créer un nouveau document avec les variables
+            doc_dict = doc.dict()
+            doc_dict["variables"] = doc_variables
+            documents_with_variables.append(doc_dict)
+            
+        except Exception as e:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Impossible d'extraire les variables du document {doc.titre}: {str(e)}"
+            )
 
     template_data = {
         "id": str(uuid.uuid4()),
         "titre": template.titre,
         "description": template.description,
         "type_entreprise": template.type_entreprise,
-        "google_doc_id": template.google_doc_id,
-        "google_doc_url": template.google_doc_id,  # Stocker aussi l'URL complète
-        "variables": variables,
+        "documents": documents_with_variables,  # Documents avec leurs variables
+        "variables": [],  # On peut garder cette liste vide ou y mettre toutes les variables
         "est_actif": True,
         "statut": "en_attente",
         "date_creation": datetime.now().isoformat()
@@ -211,30 +222,41 @@ async def update_template(
         if key != "refresh_variables" and value is not None:  # Ignorer le champ refresh_variables
             updated_template[key] = value
     
-    # Si un nouveau google_doc_id est fourni, extraire les variables
-    if "google_doc_id" in template_update and template_update["google_doc_id"] != existing_template.get("google_doc_id") or template_update.get("refresh_variables", False):
-        doc_id = extract_doc_id_from_url(updated_template["google_doc_id"])
-        try:
-            variable_names = extract_variables_from_doc(doc_id)
-            variables = []
-            for var in variable_names:
-                var_name = var.strip()
-                var_type = detect_variable_type(var_name)
-                
-                variable = {
-                    "id": str(uuid.uuid4()),
-                    "nom": var_name,
-                    "type": var_type,
-                    "obligatoire": True
-                }
-                
-                # Enrichir avec des valeurs par défaut et des descriptions
-                variable = enrich_variable_template(variable)
-                variables.append(variable)
-                
-            updated_template["variables"] = variables
-        except Exception as e:
-            print(f"Erreur lors de l'extraction des variables: {e}")
+    # Si des documents sont fournis ou si on demande un rafraîchissement des variables
+    if "documents" in template_update or template_update.get("refresh_variables", False):
+        # Utiliser les documents du template mis à jour
+        documents = updated_template.get("documents", [])
+        all_variables = set()
+        
+        for doc in documents:
+            doc_id = extract_doc_id_from_url(doc["google_doc_id"])
+            try:
+                variable_names = extract_variables_from_doc(doc_id)
+                for var in variable_names:
+                    all_variables.add(var.strip())
+            except Exception as e:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Erreur lors de l'extraction des variables du document {doc.get('titre', '')}: {str(e)}"
+                )
+        
+        # Créer de nouvelles variables
+        variables = []
+        for var_name in all_variables:
+            var_type = detect_variable_type(var_name)
+            
+            variable = {
+                "id": str(uuid.uuid4()),
+                "nom": var_name,
+                "type": var_type,
+                "obligatoire": True
+            }
+            
+            # Enrichir avec des valeurs par défaut et des descriptions
+            variable = enrich_variable_template(variable)
+            variables.append(variable)
+            
+        updated_template["variables"] = variables
     
     result = await db.update(template_id, updated_template)
     if not result:
@@ -244,7 +266,7 @@ async def update_template(
 
 
 @router.get("/{template_id}/content")
-async def get_template_content(template_id: str, current_user=Depends(get_current_active_user)):
+async def get_template_content(template_id: str, document_index: int = 0, current_user=Depends(get_current_active_user)):
     if current_user["role"] != "admin" and current_user["role"] != "expert":
         raise HTTPException(status_code=403, detail="Not authorized")
     
@@ -253,17 +275,36 @@ async def get_template_content(template_id: str, current_user=Depends(get_curren
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
     
+    # Vérifier si le template a des documents
+    if not template.get("documents") or len(template["documents"]) <= document_index:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    document = template["documents"][document_index]
+    
     try:
-        content = get_google_doc_content(template["google_doc_id"])
+        content = get_google_doc_content(document["google_doc_id"])
         return {
             "content": content,
-            "variables": template.get("variables", [])
+            "variables": template.get("variables", []),
+            "document": document
         }
     except Exception as e:
         raise HTTPException(
             status_code=400, 
             detail=f"Could not fetch document content: {str(e)}"
         )
+    
+@router.get("/{template_id}/documents")
+async def get_template_documents(template_id: str, current_user=Depends(get_current_active_user)):
+    if current_user["role"] not in ["admin", "expert", "client"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    db = CouchDB(TEMPLATES_COLLECTION)
+    template = await db.get_by_id(template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    return template.get("documents", [])
     
 @router.get("/expert", response_model=List[DocumentTemplate])
 async def get_expert_templates(skip: int = 0, limit: int = 100, current_user=Depends(get_current_active_user)):
@@ -367,46 +408,18 @@ async def get_template_by_id(template_id: str, current_user=Depends(get_current_
     
     return template
 
-# Ajoutez ce nouvel endpoint dans templates.py
 
-@router.post("/{template_id}/preview")
-async def preview_template(
-    template_id: str,
-    data: dict,
-    current_user=Depends(get_current_active_user)
-):
-    """Génère une prévisualisation du template avec les valeurs des variables remplies."""
+
+
+@router.get("/by-type/{type_entreprise}", response_model=DocumentTemplate)
+async def get_template_by_type(type_entreprise: TypeEntreprise, current_user=Depends(get_current_active_user)):
     db = CouchDB(TEMPLATES_COLLECTION)
-    template = await db.get_by_id(template_id)
+    templates = await db.query({
+        "type_entreprise": type_entreprise.value,
+        "statut": "validé"
+    })
     
-    if not template:
-        raise HTTPException(status_code=404, detail="Template not found")
+    if not templates:
+        raise HTTPException(status_code=404, detail="Aucun template trouvé pour ce type d'entreprise")
     
-    # Récupérer les valeurs des variables fournies par l'utilisateur
-    valeurs_variables = data.get("valeurs_variables", {})
-    
-    try:
-        # Récupérer le contenu du document Google Docs
-        doc_id = extract_doc_id_from_url(template["google_doc_id"])
-        content = get_google_doc_content(doc_id)
-        
-        # Remplacer les variables par les valeurs fournies
-        for var_name, var_value in valeurs_variables.items():
-            placeholder = f"{{${var_name}}}"
-            content = content.replace(placeholder, str(var_value))
-        
-        # Vous pourriez éventuellement créer une copie temporaire du document
-        # pour permettre la prévisualisation, mais pour l'instant retournons juste l'ID du doc original
-        
-        return {
-            "preview_available": True,
-            "google_doc_id": doc_id,
-            "template_id": template_id
-        }
-        
-    except Exception as e:
-        logger.error(f"Erreur lors de la génération de la prévisualisation: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Erreur lors de la génération de la prévisualisation: {str(e)}"
-        )
+    return templates[0]

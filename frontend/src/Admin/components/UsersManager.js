@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react"
 import axios from "axios"
+import { Users, UserPlus, Trash2, Ban, Check, X, Plus } from "lucide-react"
+import "./UsersManager.css"
 
 const UsersManager = ({ setSuccessMsg, setErrorMsg, updateStats }) => {
   // State for user management
@@ -14,6 +16,7 @@ const UsersManager = ({ setSuccessMsg, setErrorMsg, updateStats }) => {
     mot_de_passe: "",
     role: "client",
   })
+  const [activeView, setActiveView] = useState("list") // "list" ou "form"
 
   // Fetch users on component mount
   useEffect(() => {
@@ -84,6 +87,7 @@ const UsersManager = ({ setSuccessMsg, setErrorMsg, updateStats }) => {
       })
       // Refresh users
       fetchUsers()
+      setActiveView("list")
     } catch (error) {
       console.error(error)
       handleApiError(error)
@@ -168,46 +172,60 @@ const UsersManager = ({ setSuccessMsg, setErrorMsg, updateStats }) => {
     })
   }
 
-  // Modifier le rendu des badges de rôle pour utiliser les bonnes classes
-  const renderRoleBadge = (role) => {
-    let badgeClass = "role-badge"
-    if (role === "admin") badgeClass += " admin"
-    else if (role === "expert") badgeClass += " expert"
-    else if (role === "client") badgeClass += " client"
+  const getRoleBadgeClass = (role) => {
+    switch (role) {
+      case "admin":
+        return "v0-badge v0-badge-primary"
+      case "expert":
+        return "v0-badge v0-badge-warning"
+      default:
+        return "v0-badge v0-badge-success"
+    }
+  }
 
-    return <span className={badgeClass}>{role}</span>
+  const getStatusBadgeClass = (isActive) => {
+    return isActive ? "v0-badge v0-badge-success" : "v0-badge v0-badge-danger"
   }
 
   return (
-    <div className="section-container fade-in">
-      <div className="users-container">
-        {/* Users List */}
-        <div className="users-list">
-          <h2 className="section-title">
-            <svg
-              className="section-title-icon"
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-              <circle cx="9" cy="7" r="4"></circle>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-            </svg>
-            Utilisateurs
-          </h2>
-          {users.length === 0 ? (
-            <p>Aucun utilisateur disponible</p>
+    <div className="v0-users-manager">
+      {/* Header with actions */}
+      <div className="v0-section-header">
+        <div className="v0-section-title">
+          <Users size={24} />
+          <h2>Gestion des Utilisateurs</h2>
+        </div>
+
+        <div className="v0-section-actions">
+          {activeView === "list" ? (
+            <button className="v0-btn-new-user" onClick={() => setActiveView("form")}>
+              <UserPlus size={16} />
+              <span>Nouvel Utilisateur</span>
+            </button>
           ) : (
-            <div className="users-table-container">
-              <table className="users-table">
+            <button className="v0-btn v0-btn-outline" onClick={() => setActiveView("list")}>
+              <X size={16} />
+              <span>Annuler</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Users List View */}
+      {activeView === "list" && (
+        <div className="v0-users-list">
+          {users.length === 0 ? (
+            <div className="v0-empty-state">
+              <Users size={48} />
+              <p>Aucun utilisateur disponible</p>
+              <button className="v0-btn-new-user" onClick={() => setActiveView("form")}>
+                <UserPlus size={16} />
+                <span>Créer un utilisateur</span>
+              </button>
+            </div>
+          ) : (
+            <div className="v0-table-container">
+              <table className="v0-table v0-users-table">
                 <thead>
                   <tr>
                     <th>Nom</th>
@@ -224,25 +242,41 @@ const UsersManager = ({ setSuccessMsg, setErrorMsg, updateStats }) => {
                       <td>{user.nom}</td>
                       <td>{user.prenom}</td>
                       <td>{user.email}</td>
-                      <td>{renderRoleBadge(user.role)}</td>
                       <td>
-                        <span className={`status-badge ${user.est_actif ? "active" : "inactive"}`}>
+                        <span className={getRoleBadgeClass(user.role)}>{user.role}</span>
+                      </td>
+                      <td>
+                        <span className={getStatusBadgeClass(user.est_actif)}>
                           {user.est_actif ? "Actif" : "Inactif"}
                         </span>
                       </td>
-                      <td className="action-buttons">
-                        {user.est_actif ? (
-                          <button className="ban-btn" onClick={() => handleUpdateUser(user.id, false)}>
-                            Bannir
+                      <td>
+                        <div className="v0-action-buttons">
+                          {user.est_actif ? (
+                            <button
+                              className="v0-btn v0-btn-warning v0-btn-sm"
+                              onClick={() => handleUpdateUser(user.id, false)}
+                              title="Désactiver"
+                            >
+                              <Ban size={16} />
+                            </button>
+                          ) : (
+                            <button
+                              className="v0-btn v0-btn-success v0-btn-sm"
+                              onClick={() => handleUpdateUser(user.id, true)}
+                              title="Activer"
+                            >
+                              <Check size={16} />
+                            </button>
+                          )}
+                          <button
+                            className="v0-btn v0-btn-danger v0-btn-sm"
+                            onClick={() => handleDeleteUser(user.id)}
+                            title="Supprimer"
+                          >
+                            <Trash2 size={16} />
                           </button>
-                        ) : (
-                          <button className="activate-btn" onClick={() => handleUpdateUser(user.id, true)}>
-                            Activer
-                          </button>
-                        )}
-                        <button className="delete-btn" onClick={() => handleDeleteUser(user.id)}>
-                          Supprimer
-                        </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -251,82 +285,130 @@ const UsersManager = ({ setSuccessMsg, setErrorMsg, updateStats }) => {
             </div>
           )}
         </div>
+      )}
 
-        {/* User Form */}
-        <div className="user-form">
-          <h2 className="section-title">
-            <svg
-              className="section-title-icon"
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-              <circle cx="8.5" cy="7" r="4"></circle>
-              <line x1="20" y1="8" x2="20" y2="14"></line>
-              <line x1="23" y1="11" x2="17" y2="11"></line>
-            </svg>
-            Ajouter un utilisateur
-          </h2>
-          <form onSubmit={handleCreateUser}>
-            <div className="form-group1">
-              <label>Nom</label>
-              <input type="text" name="nom" value={newUser.nom} onChange={handleInputChange} required />
-            </div>
-            <div className="form-group1">
-              <label>Prénom</label>
-              <input type="text" name="prenom" value={newUser.prenom} onChange={handleInputChange} required />
-            </div>
-            <div className="form-group1">
-              <label>Email</label>
-              <input type="email" name="email" value={newUser.email} onChange={handleInputChange} required />
-            </div>
-            <div className="form-group1">
-              <label>Téléphone</label>
-              <input type="tel" name="telephone" value={newUser.telephone} onChange={handleInputChange} />
-            </div>
-            <div className="form-group1">
-              <label>Mot de passe</label>
-              <input
-                type="password"
-                name="mot_de_passe"
-                value={newUser.mot_de_passe}
-                onChange={handleInputChange}
-                required
-              />
-            </div>
-            <div className="form-group1">
-              <label>Rôle</label>
-              <select name="role" value={newUser.role} onChange={handleInputChange}>
-                <option value="client">Client</option>
-                <option value="expert">Expert</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-            {newUser.role === "expert" && (
-              <div className="form-group1">
-                <label>Numéro professionnel</label>
+      {/* User Form View */}
+      {activeView === "form" && (
+        <div className="v0-user-form v0-card">
+          <div className="v0-card-header">
+            <h3 className="v0-card-title">Ajouter un utilisateur</h3>
+          </div>
+          <div className="v0-card-body">
+            <form onSubmit={handleCreateUser}>
+              <div className="v0-form-group">
+                <label htmlFor="nom">Nom</label>
                 <input
                   type="text"
-                  name="numero_professionnel"
-                  value={newUser.numero_professionnel || ""}
+                  id="nom"
+                  className="v0-form-control"
+                  name="nom"
+                  value={newUser.nom}
                   onChange={handleInputChange}
                   required
+                  placeholder="Entrez le nom"
                 />
               </div>
-            )}
-            <button type="submit" className="submit-btn">
-              Ajouter
-            </button>
-          </form>
+
+              <div className="v0-form-group">
+                <label htmlFor="prenom">Prénom</label>
+                <input
+                  type="text"
+                  id="prenom"
+                  className="v0-form-control"
+                  name="prenom"
+                  value={newUser.prenom}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="Entrez le prénom"
+                />
+              </div>
+
+              <div className="v0-form-group">
+                <label htmlFor="email">Email</label>
+                <input
+                  type="email"
+                  id="email"
+                  className="v0-form-control"
+                  name="email"
+                  value={newUser.email}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="exemple@email.com"
+                />
+              </div>
+
+              <div className="v0-form-group">
+                <label htmlFor="telephone">Téléphone</label>
+                <input
+                  type="tel"
+                  id="telephone"
+                  className="v0-form-control"
+                  name="telephone"
+                  value={newUser.telephone}
+                  onChange={handleInputChange}
+                  placeholder="Entrez le numéro de téléphone"
+                />
+              </div>
+
+              <div className="v0-form-group">
+                <label htmlFor="mot_de_passe">Mot de passe</label>
+                <input
+                  type="password"
+                  id="mot_de_passe"
+                  className="v0-form-control"
+                  name="mot_de_passe"
+                  value={newUser.mot_de_passe}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="Entrez le mot de passe"
+                />
+              </div>
+
+              <div className="v0-form-group">
+                <label htmlFor="role">Rôle</label>
+                <select
+                  id="role"
+                  className="v0-form-control"
+                  name="role"
+                  value={newUser.role}
+                  onChange={handleInputChange}
+                >
+                  <option value="client">Client</option>
+                  <option value="expert">Expert</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+
+              {newUser.role === "expert" && (
+                <div className="v0-form-group">
+                  <label htmlFor="numero_professionnel">Numéro professionnel</label>
+                  <input
+                    type="text"
+                    id="numero_professionnel"
+                    className="v0-form-control"
+                    name="numero_professionnel"
+                    value={newUser.numero_professionnel || ""}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="Entrez le numéro professionnel"
+                  />
+                </div>
+              )}
+
+              <div className="v0-form-actions">
+                <button type="submit" className="v0-btn-new-user">
+                  <Plus size={16} />
+                  <span>Ajouter</span>
+                </button>
+                <button type="button" className="v0-btn v0-btn-outline" onClick={() => setActiveView("list")}>
+                  <X size={16} />
+                  <span>Annuler</span>
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

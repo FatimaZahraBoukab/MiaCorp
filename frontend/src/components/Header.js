@@ -99,7 +99,7 @@ const Header = () => {
               <span>Espace Pro</span>
             </div>
             <div
-              className="nav-item dropdown"
+              className="nav-item12 dropdown"
               onClick={() => scrollToSection("contact-section")}
               style={{ cursor: "pointer" }}
             >

@@ -1,16 +1,23 @@
 "use client"
 
+import React from "react"
+
 import { useState, useEffect } from "react"
 import axios from "axios"
-import Sidebar from "./components/Sidebar"
-import Header from "./components/Header"
-import MetricsOverview from "./components/MetricsOverview"
-import ControleTemplate from "./components/ControleTemplate"
-import ControleEntreprise from "./components/ControleEntreprise"
-import Settings from "./components/Settings"
+import SidebarV5 from "./components/Sidebar"
+import HeaderV5 from "./components/Header"
+import Dashboard from "./components/Dashboard"
+import ControleTemplateV5 from "./components/ControleTemplate"
+import ControleEntrepriseV5 from "./components/ControleEntreprise"
+import ProfileV5 from "./components/ProfileExpert"
+import MetricsOverviewV5 from "./components/MetricsOverview"
 import "./expertDashboard.css"
+import "./sidebar.css"
+import "./dashboard-welcome.css"
+import "./template-table.css"
+import "./entreprise-table.css"
 
-const ExpertDashboard = () => {
+const ExpertDashboardV5 = () => {
   // State pour les templates
   const [templates, setTemplates] = useState([])
   const [stats, setStats] = useState({
@@ -18,6 +25,7 @@ const ExpertDashboard = () => {
     pendingTemplates: 0,
     validatedTemplates: 0,
     rejectedTemplates: 0,
+    templates: [], // Ajout des templates pour le dashboard
   })
 
   // State pour les entreprises
@@ -34,30 +42,28 @@ const ExpertDashboard = () => {
   const [errorMsg, setErrorMsg] = useState([])
 
   // State pour les onglets
-  const [activeTab, setActiveTab] = useState("templates")
-
-  // State pour le thème
-  const [theme, setTheme] = useState(() => {
-    const savedTheme = localStorage.getItem("theme")
-    return savedTheme || "dark"
-  })
-
-  // Effect pour appliquer le thème
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme)
-    localStorage.setItem("theme", theme)
-  }, [theme])
-
-  // Toggle theme function
-  const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark")
-  }
+  const [activeTab, setActiveTab] = useState("dashboard")
 
   // Vérifier si l'utilisateur est connecté
   useEffect(() => {
     const token = localStorage.getItem("token")
     if (!token) {
       setErrorMsg(["Vous devez être connecté avec un compte expert pour accéder à ce tableau de bord."])
+    }
+  }, [])
+
+  // Ajouter un écouteur d'événement pour changer d'onglet depuis le dashboard
+  useEffect(() => {
+    const handleChangeTab = (event) => {
+      if (event.detail && event.detail.tab) {
+        setActiveTab(event.detail.tab)
+      }
+    }
+
+    window.addEventListener("changeTab", handleChangeTab)
+
+    return () => {
+      window.removeEventListener("changeTab", handleChangeTab)
     }
   }, [])
 
@@ -74,12 +80,14 @@ const ExpertDashboard = () => {
       const validatedCount = templates.filter((template) => template.statut === "validé").length
       const rejectedCount = templates.filter((template) => template.statut === "rejeté").length
 
-      setStats({
+      setStats((prevStats) => ({
+        ...prevStats,
         totalTemplates: templates.length,
         pendingTemplates: pendingCount,
         validatedTemplates: validatedCount,
         rejectedTemplates: rejectedCount,
-      })
+        templates: templates, // Ajout des templates pour le dashboard
+      }))
     }
   }, [templates])
 
@@ -167,85 +175,88 @@ const ExpertDashboard = () => {
     return templates.filter((template) => template.statut === statusFilter)
   }
 
-  return (
-    <div className="expert-dashboard">
-      {/* Sidebar */}
-      <Sidebar sidebarOpen={sidebarOpen} />
+  // Afficher les statistiques sur toutes les pages sauf le profil
+  const shouldShowMetrics = false // Désactiver les métriques en haut de chaque page
 
-      {/* Main Content */}
-      <div className="main-content">
-        <Header toggleTheme={toggleTheme} toggleSidebar={toggleSidebar} theme={theme} />
+  return React.createElement(
+    "div",
+    { className: "v5-expert-dashboard" },
+    // Sidebar
+    React.createElement(SidebarV5, {
+      sidebarOpen: sidebarOpen,
+      activeTab: activeTab,
+      setActiveTab: setActiveTab,
+    }),
 
-        {successMsg && <div className="success-message">{successMsg}</div>}
-        {errorMsg.length > 0 && (
-          <div className="error-message">
-            {errorMsg.map((msg, index) => (
-              <p key={index}>{msg}</p>
-            ))}
-          </div>
-        )}
+    // Main Content
+    React.createElement(
+      "div",
+      { className: "v5-main-content" },
+      React.createElement(HeaderV5, {
+        toggleSidebar: toggleSidebar,
+        setActiveTab: setActiveTab,
+      }),
 
-        {/* Metrics Overview */}
-        <MetricsOverview stats={stats} />
+      successMsg && React.createElement("div", { className: "v5-success-message" }, successMsg),
 
-        {/* Filtres */}
-        <div className="filter-container">
-          <div className="filter-group">
-            <label>Filtrer par statut:</label>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-              <option value="all">Tous</option>
-              <option value="en_attente">En attente</option>
-              <option value="validé">Validés</option>
-              <option value="rejeté">Rejetés</option>
-            </select>
-          </div>
-        </div>
+      errorMsg.length > 0 &&
+        React.createElement(
+          "div",
+          { className: "v5-error-message" },
+          errorMsg.map((msg, index) => React.createElement("p", { key: index }, msg)),
+        ),
 
-        {/* Tabs */}
-        <div className="tabs">
-          <button
-            className={activeTab === "templates" ? "tab-button active" : "tab-button"}
-            onClick={() => setActiveTab("templates")}
-          >
-            Validation des Templates
-          </button>
-          <button
-            className={activeTab === "entreprises" ? "tab-button active" : "tab-button"}
-            onClick={() => setActiveTab("entreprises")}
-          >
-            Validation des Entreprises
-          </button>
-          <button
-            className={activeTab === "settings" ? "tab-button active" : "tab-button"}
-            onClick={() => setActiveTab("settings")}
-          >
-            Paramètres
-          </button>
-        </div>
+      // Afficher les statistiques sur toutes les pages sauf le profil
+      shouldShowMetrics && React.createElement(MetricsOverviewV5, { stats: stats }),
 
-        {/* Content based on active tab */}
-        {activeTab === "templates" && (
-          <ControleTemplate
-            templates={getFilteredTemplates()}
-            fetchTemplates={fetchTemplates}
-            setSuccessMsg={setSuccessMsg}
-            setErrorMsg={setErrorMsg}
-          />
-        )}
+      // Content based on active tab
+      activeTab === "dashboard" && React.createElement(Dashboard, { stats: stats }),
 
-        {activeTab === "entreprises" && (
-          <ControleEntreprise
-            entreprises={entreprises}
-            fetchEntreprises={fetchEntreprises}
-            setSuccessMsg={setSuccessMsg}
-            setErrorMsg={setErrorMsg}
-          />
-        )}
+      activeTab === "templates" &&
+        React.createElement(
+          React.Fragment,
+          null,
+          // Filtres
+          React.createElement(
+            "div",
+            { className: "v5-filter-container" },
+            React.createElement(
+              "div",
+              { className: "v5-filter-group" },
+              React.createElement("label", null, "Filtrer par statut:"),
+              React.createElement(
+                "select",
+                {
+                  value: statusFilter,
+                  onChange: (e) => setStatusFilter(e.target.value),
+                },
+                React.createElement("option", { value: "all" }, "Tous"),
+                React.createElement("option", { value: "en_attente" }, "En attente"),
+                React.createElement("option", { value: "validé" }, "Validés"),
+                React.createElement("option", { value: "rejeté" }, "Rejetés"),
+              ),
+            ),
+          ),
 
-        {activeTab === "settings" && <Settings theme={theme} toggleTheme={toggleTheme} />}
-      </div>
-    </div>
+          React.createElement(ControleTemplateV5, {
+            templates: getFilteredTemplates(),
+            fetchTemplates: fetchTemplates,
+            setSuccessMsg: setSuccessMsg,
+            setErrorMsg: setErrorMsg,
+          }),
+        ),
+
+      activeTab === "entreprises" &&
+        React.createElement(ControleEntrepriseV5, {
+          entreprises: entreprises,
+          fetchEntreprises: fetchEntreprises,
+          setSuccessMsg: setSuccessMsg,
+          setErrorMsg: setErrorMsg,
+        }),
+
+      activeTab === "profile" && React.createElement(ProfileV5),
+    ),
   )
 }
 
-export default ExpertDashboard
+export default ExpertDashboardV5

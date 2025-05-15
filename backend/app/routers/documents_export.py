@@ -40,11 +40,13 @@ TEMPLATES_COLLECTION = "templates"
 @router.get("/export/{entreprise_id}")
 async def export_document(
     entreprise_id: str,
+    document_index: int = 0,  # Nouvel argument pour spécifier quel document exporter
     format: str = "pdf",
     current_user: dict = Depends(get_current_active_user)
 ):
     """
     Exporte un document au format PDF ou DOCX avec les variables remplacées par les valeurs du client.
+    Le paramètre document_index permet de spécifier quel document du template exporter.
     """
     # Vérifier que l'utilisateur est autorisé (client propriétaire ou expert)
     entreprises_db = CouchDB(ENTREPRISES_COLLECTION)
@@ -56,6 +58,7 @@ async def export_document(
     # Log pour déboguer
     logger.info(f"Entreprise trouvée: {entreprise_id}")
     logger.info(f"Template ID associé: {entreprise.get('template_id', 'Non défini')}")
+    logger.info(f"Document index demandé: {document_index}")
     
     # Vérifier que l'utilisateur est le propriétaire de l'entreprise ou un expert
     if current_user["role"] != "expert" and current_user["id"] != entreprise["client_id"]:
@@ -101,14 +104,28 @@ async def export_document(
             template = templates[0]
             logger.info(f"Template alternatif trouvé: {template['id']}")
     
+    # Vérifier que le document à l'index spécifié existe
+    if not template.get("documents") or len(template["documents"]) <= document_index:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Document à l'index {document_index} non trouvé dans le template"
+        )
+    
+    # Récupérer le document à l'index spécifié
+    document = template["documents"][document_index]
+    
+    # Log du document sélectionné
+    logger.info(f"Document sélectionné: {document.get('titre', 'Sans titre')}")
+    
     # Récupérer le contenu du document depuis Google Docs
     try:
-        logger.info(f"Récupération du contenu du template depuis Google Docs: {template.get('google_doc_id', 'ID non défini')}")
-        doc_content = get_google_doc_content(template.get('google_doc_id', ''))
+        doc_id = extract_doc_id_from_url(document.get('google_doc_id', ''))
+        logger.info(f"Récupération du contenu du document depuis Google Docs: {doc_id}")
+        doc_content = get_google_doc_content(doc_id)
         logger.info(f"Contenu récupéré avec succès, longueur: {len(doc_content)} caractères")
     except Exception as e:
-        logger.error(f"Erreur lors de la récupération du contenu du template: {e}")
-        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération du contenu du template: {str(e)}")
+        logger.error(f"Erreur lors de la récupération du contenu du document: {e}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération du contenu du document: {str(e)}")
     
     # Remplacer les variables par les valeurs
     valeurs_variables = entreprise["valeurs_variables"]
@@ -117,12 +134,12 @@ async def export_document(
     # Générer le document au format demandé
     if format.lower() == "pdf":
         content, content_type = generate_pdf(doc_content_with_values, entreprise["type"])
-        filename = f"document_{entreprise_id}.pdf"
+        filename = f"{document.get('titre', 'document')}_{entreprise_id}.pdf"
     elif format.lower() == "docx":
         if not DOCX_AVAILABLE:
             raise HTTPException(status_code=501, detail="Export Word non disponible. Veuillez installer python-docx.")
         content, content_type = generate_docx(doc_content_with_values, entreprise["type"])
-        filename = f"document_{entreprise_id}.docx"
+        filename = f"{document.get('titre', 'document')}_{entreprise_id}.docx"
     else:
         raise HTTPException(status_code=400, detail="Format non supporté. Utilisez 'pdf' ou 'docx'")
     
@@ -162,32 +179,23 @@ def generate_pdf(content: str, entreprise_type: str) -> tuple:
     doc = SimpleDocTemplate(buffer, pagesize=letter)
     styles = getSampleStyleSheet()
     
-   
     
-    # Créer un style pour le texte normal
-    normal_style = ParagraphStyle(
-        'NormalStyle',
-        parent=styles['Normal'],
-        fontSize=12,
-        alignment=TA_JUSTIFY,
-        spaceAfter=10
-    )
     
     # Préparer les éléments du document
     elements = []
     
-    
+
     
     # Diviser le contenu en paragraphes et les ajouter au document
     paragraphs = content.split('\n')
     for para in paragraphs:
         if para.strip():
             try:
-                elements.append(Paragraph(para.strip(), normal_style))
+                elements.append(Paragraph(para.strip()))
             except Exception as e:
                 # Si un paragraphe pose problème, l'ajouter comme texte brut
                 logger.warning(f"Erreur lors de l'ajout d'un paragraphe: {e}")
-                elements.append(Paragraph(f"[Contenu formaté non supporté]", normal_style))
+                elements.append(Paragraph(f"[Contenu formaté non supporté]"))
     
     # Construire le document
     doc.build(elements)
@@ -204,8 +212,6 @@ def generate_docx(content: str, entreprise_type: str) -> tuple:
     """
     # Créer un document Word
     doc = Document()
-    
-   
     
     # Diviser le contenu en paragraphes
     paragraphs = content.split('\n')
@@ -327,3 +333,62 @@ async def test_google_doc_access(
             "doc_id": doc_id,
             "error": str(e)
         }
+
+
+@router.get("/available/{entreprise_id}")
+async def get_available_documents(
+    entreprise_id: str,
+    current_user: dict = Depends(get_current_active_user)
+):
+    """Retourne la liste des documents disponibles pour une entreprise."""
+    # Vérifier que l'utilisateur est autorisé (client propriétaire ou expert)
+    entreprises_db = CouchDB(ENTREPRISES_COLLECTION)
+    entreprise = await entreprises_db.get_by_id(entreprise_id)
+    
+    if not entreprise:
+        raise HTTPException(status_code=404, detail="Entreprise non trouvée")
+    
+    # Vérifier que l'utilisateur est le propriétaire de l'entreprise ou un expert
+    if current_user["role"] != "expert" and current_user["id"] != entreprise["client_id"]:
+        raise HTTPException(status_code=403, detail="Vous n'êtes pas autorisé à accéder à ce document")
+    
+    # Vérifier que l'entreprise est validée
+    if entreprise["statut"] != "validé":
+        raise HTTPException(status_code=400, detail="L'entreprise doit être validée pour accéder aux documents")
+    
+    # Récupérer le template associé à l'entreprise
+    template_id = entreprise.get("template_id")
+    
+    if not template_id:
+        # Si template_id n'existe pas, utiliser le type d'entreprise pour trouver un template
+        templates_db = CouchDB(TEMPLATES_COLLECTION)
+        templates = await templates_db.query({"type_entreprise": entreprise["type"], "statut": "validé"})
+        
+        if not templates:
+            return {"documents": []}
+        
+        template = templates[0]
+    else:
+        templates_db = CouchDB(TEMPLATES_COLLECTION)
+        template = await templates_db.get_by_id(template_id)
+        
+        if not template:
+            # Essayer de trouver un template par type si le template_id ne fonctionne pas
+            templates = await templates_db.query({"type_entreprise": entreprise["type"], "statut": "validé"})
+            
+            if not templates:
+                return {"documents": []}
+            
+            template = templates[0]
+    
+    # Retourner la liste des documents disponibles avec leur index
+    return {
+        "documents": [
+            {
+                "index": idx,
+                "titre": doc.get("titre", f"Document {idx+1}"),
+                "description": doc.get("description", ""),
+            }
+            for idx, doc in enumerate(template.get("documents", []))
+        ]
+    }

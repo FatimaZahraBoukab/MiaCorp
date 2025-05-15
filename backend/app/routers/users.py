@@ -1,11 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
 from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime
+import base64
+from io import BytesIO
+from PIL import Image
 
 from ..couchdb import CouchDB
 from ..models import User, UserCreate, Client, ClientCreate, ExpertJuridique, ExpertJuridiqueCreate
-from .auth import get_current_active_user, get_password_hash
+from .auth import get_current_active_user, get_password_hash, verify_password
 
 router = APIRouter(
     prefix="/users",
@@ -57,17 +60,12 @@ async def update_user_me(
     # Mise à jour uniquement des champs fournis
     updated_user = existing_user.copy()
     for key, value in user_update.items():
-        if key != "mot_de_passe" and key != "email" and value is not None:
+        if key != "mot_de_passe" and value is not None:
             updated_user[key] = value
     
     # Traitement spécial pour le mot de passe
     if "mot_de_passe" in user_update and user_update["mot_de_passe"]:
         updated_user["mot_de_passe"] = get_password_hash(user_update["mot_de_passe"])
-    
-    # L'email ne peut pas être modifié directement pour des raisons de sécurité
-    if "email" in user_update:
-        # Ici, vous pourriez implémenter un processus de vérification d'email
-        pass
     
     updated_user = await users_db.update(user_id, updated_user)
     
@@ -76,6 +74,101 @@ async def update_user_me(
         updated_user.pop("mot_de_passe", None)
     
     return updated_user
+
+@router.put("/me/password", status_code=status.HTTP_200_OK)
+async def update_password(
+    password_update: dict,
+    current_user: dict = Depends(get_current_active_user)
+):
+    user_id = current_user.get("id")
+    
+    if "current_password" not in password_update or "new_password" not in password_update:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Les mots de passe actuels et nouveaux sont requis"
+        )
+    
+    users_db = CouchDB(USERS_COLLECTION)
+    existing_user = await users_db.get_by_id(user_id)
+    if existing_user is None:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    
+    # Vérifier que le mot de passe actuel est correct
+    if not verify_password(password_update["current_password"], existing_user.get("mot_de_passe")):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mot de passe actuel incorrect"
+        )
+    
+    # Mettre à jour le mot de passe
+    updated_user = existing_user.copy()
+    updated_user["mot_de_passe"] = get_password_hash(password_update["new_password"])
+    
+    success = await users_db.update(user_id, updated_user)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erreur lors de la mise à jour du mot de passe"
+        )
+    
+    return {"message": "Mot de passe mis à jour avec succès"}
+
+@router.post("/me/avatar", response_model=User)
+async def update_avatar(
+    avatar: UploadFile = File(...),
+    current_user: dict = Depends(get_current_active_user)
+):
+    user_id = current_user.get("id")
+    
+    users_db = CouchDB(USERS_COLLECTION)
+    existing_user = await users_db.get_by_id(user_id)
+    if existing_user is None:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    
+    # Lire le contenu du fichier
+    contents = await avatar.read()
+    
+    # Vérifier le type de fichier
+    if not avatar.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Le fichier doit être une image"
+        )
+    
+    try:
+        # Redimensionner l'image pour optimiser la taille
+        img = Image.open(BytesIO(contents))
+        img.thumbnail((200, 200))  # Redimensionner à 200x200 max
+        
+        # Convertir l'image en JPEG
+        output = BytesIO()
+        img.convert("RGB").save(output, format="JPEG", quality=85)
+        output.seek(0)
+        
+        # Encoder en base64
+        avatar_base64 = base64.b64encode(output.read()).decode("utf-8")
+        
+        # Mettre à jour l'utilisateur
+        updated_user = existing_user.copy()
+        updated_user["avatar"] = f"data:image/jpeg;base64,{avatar_base64}"
+        
+        success = await users_db.update(user_id, updated_user)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Erreur lors de la mise à jour de l'avatar"
+            )
+        
+        # Retirer le mot de passe de la réponse
+        updated_user.pop("mot_de_passe", None)
+        
+        return updated_user
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur lors du traitement de l'image: {str(e)}"
+        )
 
 @router.get("/{user_id}", response_model=User)
 async def read_user(

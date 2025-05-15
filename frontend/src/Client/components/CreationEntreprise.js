@@ -1,25 +1,27 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
 import axios from "axios"
+import "../styles/creation-entreprise.css"
+import { CheckCircle, Upload, ChevronRight, ChevronLeft, AlertTriangle, Check, Building } from "lucide-react"
 
 const CreationEntreprise = () => {
-  const [step, setStep] = useState(1) // 1: choix type, 2: formulaire, 3: confirmation, 4: upload, 5: statut
+  const navigate = useNavigate()
+  const [step, setStep] = useState(1) // 1: choix type, 2: formulaires par document, 3: confirmation, 4: upload
+  const [currentDocIndex, setCurrentDocIndex] = useState(0) // Index du document actuel
   const [entrepriseTypes, setEntrepriseTypes] = useState([])
   const [selectedType, setSelectedType] = useState("")
-  const [templateVariables, setTemplateVariables] = useState([])
-  const [formValues, setFormValues] = useState({})
-  const [entreprise, setEntreprise] = useState(null)
+  const [documents, setDocuments] = useState([]) // Documents du template
+  const [formValues, setFormValues] = useState({}) // Toutes les valeurs combinées
   const [file, setFile] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [templateInfo, setTemplateInfo] = useState(null)
-  const [isPreviewLoading, setIsPreviewLoading] = useState(false)
-  const [isDownloading, setIsDownloading] = useState(false)
-  const [downloadFormat, setDownloadFormat] = useState("pdf")
+  const [existingEntreprises, setExistingEntreprises] = useState([])
 
-  // Récupérer les types d'entreprise disponibles
+  // Récupérer les types d'entreprise disponibles et les entreprises existantes
   useEffect(() => {
     const fetchTypes = async () => {
       try {
@@ -33,71 +35,71 @@ const CreationEntreprise = () => {
       }
     }
 
-    // Vérifier si l'utilisateur a déjà une entreprise
-    const checkExistingEntreprise = async () => {
+    // Vérifier si l'utilisateur a déjà des entreprises (mais ne pas bloquer la création)
+    const checkExistingEntreprises = async () => {
       try {
         const token = localStorage.getItem("token")
         const response = await axios.get("http://localhost:8000/entreprises/me", {
           headers: { Authorization: `Bearer ${token}` },
         })
-        setEntreprise(response.data)
-        setStep(5) // Aller directement à l'étape de statut
 
-        // Récupérer les informations du template associé à l'entreprise
-        if (response.data.template_id) {
-          try {
-            const templateResponse = await axios.get(`http://localhost:8000/templates/${response.data.template_id}`, {
-              headers: { Authorization: `Bearer ${token}` },
-            })
-            setTemplateInfo(templateResponse.data)
-          } catch (templateErr) {
-            console.error("Erreur lors de la récupération du template:", templateErr)
-          }
+        // Convertir en tableau si c'est un objet unique
+        const entreprises = Array.isArray(response.data) ? response.data : [response.data]
+
+        // Stocker les entreprises existantes
+        if (entreprises.length > 0) {
+          console.log("Entreprises existantes:", entreprises)
+          setExistingEntreprises(entreprises)
         }
+
+        // Continuer avec le chargement des types d'entreprise
+        fetchTypes()
       } catch (err) {
-        // Pas d'entreprise existante, continuer normalement
+        // Pas d'entreprise existante ou erreur, continuer normalement
         fetchTypes()
       }
     }
 
-    checkExistingEntreprise()
+    checkExistingEntreprises()
   }, [])
 
-  // Récupérer les variables du template quand un type est sélectionné
+  // Récupérer les documents et leurs variables quand un type est sélectionné
   useEffect(() => {
     if (selectedType) {
-      const fetchVariables = async () => {
+      const fetchTemplateData = async () => {
         try {
           const token = localStorage.getItem("token")
-          const response = await axios.get(`http://localhost:8000/templates/${selectedType}/variables`, {
+          // Récupérer les informations du template
+          const templateResponse = await axios.get(`http://localhost:8000/templates/by-type/${selectedType}`, {
             headers: { Authorization: `Bearer ${token}` },
           })
-          setTemplateVariables(response.data)
 
-          // Initialiser les valeurs du formulaire
+          setTemplateInfo(templateResponse.data)
+
+          // Récupérer les documents et leurs variables
+          const documents = templateResponse.data.documents || []
+          setDocuments(documents)
+
+          // Initialiser les valeurs du formulaire pour tous les documents
           const initialValues = {}
-          response.data.forEach((variable) => {
-            initialValues[variable.nom] = variable.valeur_defaut || ""
+          documents.forEach((doc) => {
+            if (doc.variables) {
+              doc.variables.forEach((variable) => {
+                initialValues[variable.nom] = variable.valeur_defaut || ""
+              })
+            }
           })
+
           setFormValues(initialValues)
-
-          // Récupérer les informations du template
-          try {
-            const templateResponse = await axios.get(`http://localhost:8000/templates/${selectedType}`, {
-              headers: { Authorization: `Bearer ${token}` },
-            })
-            setTemplateInfo(templateResponse.data)
-          } catch (templateErr) {
-            console.error("Erreur lors de la récupération du template:", templateErr)
-          }
-
+          setCurrentDocIndex(0) // Commencer par le premier document
           setStep(2) // Passer à l'étape du formulaire
         } catch (err) {
-          setError("Erreur lors du chargement des variables du template")
+          setError("Erreur lors du chargement des informations du template")
+          console.error(err)
         }
       }
 
-      fetchVariables()
+      fetchTemplateData()
     }
   }, [selectedType])
 
@@ -111,6 +113,37 @@ const CreationEntreprise = () => {
 
   const handleFileChange = (e) => {
     setFile(e.target.files[0])
+  }
+
+  // Navigation entre les formulaires des documents
+  const handleNextDocument = () => {
+    // Valider les champs obligatoires du document actuel
+    const currentDoc = documents[currentDocIndex]
+    const requiredFields = currentDoc.variables.filter((v) => v.obligatoire).map((v) => v.nom)
+
+    const missingFields = requiredFields.filter((field) => !formValues[field])
+    if (missingFields.length > 0) {
+      setError(`Veuillez remplir tous les champs obligatoires: ${missingFields.join(", ")}`)
+      return
+    }
+
+    if (currentDocIndex < documents.length - 1) {
+      setCurrentDocIndex(currentDocIndex + 1)
+    } else {
+      // Si c'est le dernier document, passer à l'étape suivante
+      setStep(3) // Confirmation
+    }
+
+    setError("") // Effacer les erreurs précédentes
+  }
+
+  const handlePreviousDocument = () => {
+    if (currentDocIndex > 0) {
+      setCurrentDocIndex(currentDocIndex - 1)
+    } else {
+      // Si c'est le premier document, revenir à l'étape précédente
+      setStep(1) // Sélection du type
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -128,7 +161,6 @@ const CreationEntreprise = () => {
       formData.append("piece_identite", file)
 
       // Ajouter les données d'entreprise individuellement comme champs formData
-      // Important: 'valeurs_variables' doit être envoyé comme JSON string
       formData.append("nom", formValues.nom_entreprise || "Nouvelle Entreprise")
       formData.append("type", selectedType)
       formData.append("siret", formValues.siret || "")
@@ -156,9 +188,40 @@ const CreationEntreprise = () => {
         },
       })
 
-      setEntreprise(response.data)
-      setSuccess("Votre entreprise a été créée avec succès !")
-      setStep(5) // Aller à l'étape de statut
+      setSuccess("Votre entreprise a été créée avec succès ! Vérification du statut...")
+
+      // Vérifier périodiquement si l'entreprise est bien enregistrée
+      const createdEntrepriseId = response.data.id
+      let attempts = 0
+      const maxAttempts = 5
+
+      const verifyCreation = async () => {
+        if (attempts >= maxAttempts) {
+          setSuccess(
+            "Votre entreprise a été créée avec succès ! Vous pouvez suivre son statut dans la section 'Mes démarches'.",
+          )
+          setTimeout(() => {
+            navigate("/client/demarches")
+          }, 2000)
+          return
+        }
+
+        attempts++
+        const entrepriseStatus = await checkCreationStatus(createdEntrepriseId)
+
+        if (entrepriseStatus) {
+          setSuccess("Votre entreprise a été créée avec succès ! Redirection vers vos démarches...")
+          setTimeout(() => {
+            navigate("/client/demarches")
+          }, 1000)
+        } else {
+          // Réessayer après un délai
+          setTimeout(verifyCreation, 1000)
+        }
+      }
+
+      // Démarrer la vérification
+      verifyCreation()
     } catch (err) {
       console.error("Erreur lors de la soumission:", err)
 
@@ -183,62 +246,70 @@ const CreationEntreprise = () => {
     }
   }
 
-  // Fonction pour télécharger le document
-  const handleDownloadDocument = async (format) => {
-    setIsDownloading(true)
-    setError("")
-
+  // Fonction pour vérifier si l'entreprise a été créée avec succès
+  const checkCreationStatus = async (entrepriseId) => {
     try {
       const token = localStorage.getItem("token")
-      const response = await fetch(`http://localhost:8000/documents/export/${entreprise.id}?format=${format}`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const response = await axios.get(`http://localhost:8000/entreprises/${entrepriseId}`, {
+        headers: { Authorization: `Bearer ${token}` },
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        console.error("Erreur détaillée:", errorData)
-        throw new Error(errorData.detail || "Erreur lors du téléchargement du document")
-      }
-
-      // Récupérer le blob du document
-      const blob = await response.blob()
-
-      // Créer un URL pour le blob
-      const url = window.URL.createObjectURL(blob)
-
-      // Créer un lien temporaire pour télécharger le fichier
-      const a = document.createElement("a")
-      a.style.display = "none"
-      a.href = url
-
-      // Déterminer le nom du fichier en fonction du format
-      const extension = format === "pdf" ? "pdf" : "docx"
-      a.download = `document_entreprise.${extension}`
-
-      // Ajouter le lien au DOM, cliquer dessus, puis le supprimer
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-
-      setSuccess(`Document téléchargé avec succès au format ${format.toUpperCase()}`)
+      console.log("Statut de création vérifié:", response.data)
+      return response.data
     } catch (err) {
-      console.error("Erreur lors du téléchargement:", err)
-      setError(err.message || "Erreur lors du téléchargement du document")
-    } finally {
-      setIsDownloading(false)
+      console.error("Erreur lors de la vérification du statut:", err)
+      return null
     }
+  }
+
+  // Obtenir le document actuel et ses variables
+  const getCurrentDocument = () => {
+    if (!documents || documents.length === 0 || currentDocIndex >= documents.length) {
+      return { titre: "Document inconnu", variables: [] }
+    }
+    return documents[currentDocIndex]
   }
 
   return (
     <div className="creation-entreprise-container8">
-      <h1>Création d'entreprise</h1>
+      <h1 className="creation-title8">Création d'entreprise</h1>
 
-      {error && <div className="error-message8">{typeof error === "object" ? JSON.stringify(error) : error}</div>}
-      {success && <div className="success-message8">{success}</div>}
+      
+
+      <div className="creation-steps8">
+        <div className={`creation-step8 ${step === 1 ? "active8" : ""} ${step > 1 ? "completed8" : ""}`}>
+          <div className="step-number8">{step > 1 ? <Check size={20} /> : 1}</div>
+          <div className="step-label8">Type d'entreprise</div>
+        </div>
+        <div className="step-connector8"></div>
+        <div className={`creation-step8 ${step === 2 ? "active8" : ""} ${step > 2 ? "completed8" : ""}`}>
+          <div className="step-number8">{step > 2 ? <Check size={20} /> : 2}</div>
+          <div className="step-label8">Informations</div>
+        </div>
+        <div className="step-connector8"></div>
+        <div className={`creation-step8 ${step === 3 ? "active8" : ""} ${step > 3 ? "completed8" : ""}`}>
+          <div className="step-number8">{step > 3 ? <Check size={20} /> : 3}</div>
+          <div className="step-label8">Confirmation</div>
+        </div>
+        <div className="step-connector8"></div>
+        <div className={`creation-step8 ${step === 4 ? "active8" : ""}`}>
+          <div className="step-number8">4</div>
+          <div className="step-label8">Documents</div>
+        </div>
+      </div>
+
+      {error && (
+        <div className="error-message8">
+          <AlertTriangle size={24} />
+          {typeof error === "object" ? JSON.stringify(error) : error}
+        </div>
+      )}
+      {success && (
+        <div className="success-message8">
+          <CheckCircle size={24} />
+          {success}
+        </div>
+      )}
 
       {step === 1 && (
         <div className="type-selection8">
@@ -252,8 +323,16 @@ const CreationEntreprise = () => {
                 className={`type-card8 ${selectedType === type ? "selected8" : ""}`}
                 onClick={() => setSelectedType(type)}
               >
-                <h3>{type}</h3>
-                <p>Description du type {type}...</p>
+                <h3>
+                  <Building size={20} className="icon-inline" /> {type}
+                </h3>
+                <p>
+                  Description du type {type}. Sélectionnez ce type d'entreprise pour créer une structure adaptée à vos
+                  besoins.
+                </p>
+                <div className="type-card-footer8">
+                  <span className="type-select-text8">{selectedType === type ? "Sélectionné" : "Sélectionner"}</span>
+                </div>
               </div>
             ))}
           </div>
@@ -262,77 +341,83 @@ const CreationEntreprise = () => {
 
       {step === 2 && (
         <div className="form-step8">
-          <h2>Formulaire pour {selectedType}</h2>
+          <h2>
+            Document {currentDocIndex + 1}/{documents.length}: {getCurrentDocument().titre}
+          </h2>
+          <div className="progress-bar8">
+            <div className="progress8" style={{ width: `${((currentDocIndex + 1) / documents.length) * 100}%` }}></div>
+          </div>
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              setStep(3)
-            }}
-          >
-            {templateVariables.map((variable) => (
-              <div key={variable.nom} className="form-group8">
-                <label>
-                  {variable.nom}
-                  {variable.obligatoire && <span className="required8">*</span>}
-                </label>
+          <form>
+            {getCurrentDocument().variables &&
+              getCurrentDocument().variables.map((variable) => (
+                <div key={variable.nom} className="form-group8">
+                  <label>
+                    {variable.nom}
+                    {variable.obligatoire && <span className="required8">*</span>}
+                  </label>
 
-                {variable.type === "select" ? (
-                  <select
-                    name={variable.nom}
-                    value={formValues[variable.nom] || ""}
-                    onChange={handleInputChange}
-                    required={variable.obligatoire}
-                  >
-                    <option value="">Sélectionnez une option</option>
-                    {JSON.parse(variable.valeur_defaut || "[]").map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                  </select>
-                ) : variable.type === "boolean" ? (
-                  <input
-                    type="checkbox"
-                    name={variable.nom}
-                    checked={formValues[variable.nom] === "true"}
-                    onChange={(e) =>
-                      handleInputChange({
-                        target: {
-                          name: variable.nom,
-                          value: e.target.checked ? "true" : "false",
-                        },
-                      })
-                    }
-                  />
-                ) : (
-                  <input
-                    type={
-                      variable.type === "number"
-                        ? "number"
-                        : variable.type === "date"
-                          ? "date"
-                          : variable.type === "email"
-                            ? "email"
-                            : "text"
-                    }
-                    name={variable.nom}
-                    value={formValues[variable.nom] || ""}
-                    onChange={handleInputChange}
-                    required={variable.obligatoire}
-                  />
-                )}
+                  {variable.type === "select" ? (
+                    <select
+                      name={variable.nom}
+                      value={formValues[variable.nom] || ""}
+                      onChange={handleInputChange}
+                      required={variable.obligatoire}
+                    >
+                      <option value="">Sélectionnez une option</option>
+                      {(variable.valeur_defaut && typeof variable.valeur_defaut === "string"
+                        ? JSON.parse(variable.valeur_defaut || "[]")
+                        : []
+                      ).map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                  ) : variable.type === "boolean" ? (
+                    <input
+                      type="checkbox"
+                      name={variable.nom}
+                      checked={formValues[variable.nom] === "true"}
+                      onChange={(e) =>
+                        handleInputChange({
+                          target: {
+                            name: variable.nom,
+                            value: e.target.checked ? "true" : "false",
+                          },
+                        })
+                      }
+                    />
+                  ) : (
+                    <input
+                      type={
+                        variable.type === "number"
+                          ? "number"
+                          : variable.type === "date"
+                            ? "date"
+                            : variable.type === "email"
+                              ? "email"
+                              : "text"
+                      }
+                      name={variable.nom}
+                      value={formValues[variable.nom] || ""}
+                      onChange={handleInputChange}
+                      required={variable.obligatoire}
+                    />
+                  )}
 
-                {variable.description && <p className="variable-description8">{variable.description}</p>}
-              </div>
-            ))}
+                  {variable.description && <p className="variable-description8">{variable.description}</p>}
+                </div>
+              ))}
 
             <div className="form-actions8">
-              <button type="button" className="secondary-button8" onClick={() => setStep(1)}>
-                Retour
+              <button type="button" className="secondary-button8" onClick={handlePreviousDocument}>
+                <ChevronLeft size={18} />
+                {currentDocIndex === 0 ? "Retour à la sélection" : "Document précédent"}
               </button>
-              <button type="submit" className="primary-button8">
-                Continuer
+              <button type="button" className="primary-button8" onClick={handleNextDocument}>
+                {currentDocIndex < documents.length - 1 ? "Document suivant" : "Continuer vers confirmation"}
+                <ChevronRight size={18} />
               </button>
             </div>
           </form>
@@ -347,22 +432,30 @@ const CreationEntreprise = () => {
           <div className="confirmation-details8">
             <h3>Type d'entreprise : {selectedType}</h3>
 
-            <div className="details-grid8">
-              {Object.entries(formValues).map(([key, value]) => (
-                <div key={key} className="detail-item8">
-                  <strong>{key} :</strong>
-                  <span>{value}</span>
+            {documents.map((doc, index) => (
+              <div key={index} className="document-section8">
+                <h4>{doc.titre}</h4>
+                <div className="details-grid8">
+                  {doc.variables &&
+                    doc.variables.map((variable) => (
+                      <div key={variable.nom} className="detail-item8">
+                        <strong>{variable.nom} :</strong>
+                        <span>{formValues[variable.nom] || ""}</span>
+                      </div>
+                    ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
 
           <div className="form-actions8">
             <button type="button" className="secondary-button8" onClick={() => setStep(2)}>
+              <ChevronLeft size={18} />
               Modifier
             </button>
             <button type="button" className="primary-button8" onClick={() => setStep(4)}>
               Confirmer
+              <CheckCircle size={18} />
             </button>
           </div>
         </div>
@@ -381,93 +474,24 @@ const CreationEntreprise = () => {
 
             <div className="form-actions8">
               <button type="button" className="secondary-button8" onClick={() => setStep(3)}>
+                <ChevronLeft size={18} />
                 Retour
               </button>
               <button type="submit" className="primary-button8" disabled={loading || !file}>
-                {loading ? "Envoi en cours..." : "Soumettre"}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {step === 5 && entreprise && (
-        <div className="status-step8">
-          <h2>Statut de votre entreprise</h2>
-
-          <div className={`status-badge8 ${entreprise.statut}8`}>
-            {entreprise.statut === "en_attente" ? "En attente" : entreprise.statut === "validé" ? "Validé" : "Rejeté"}
-          </div>
-
-          {entreprise.statut === "en_attente" && (
-            <p>
-              Votre demande est en cours d'analyse par nos experts. Vous recevrez une notification dès qu'une décision
-              sera prise (délai maximum 24h).
-            </p>
-          )}
-
-          {entreprise.statut === "validé" && (
-            <div className="download-section8">
-              <p>Votre entreprise a été validée ! Vous pouvez maintenant télécharger vos documents :</p>
-
-              <div className="format-selection8">
-                <h3>Choisissez un format :</h3>
-                <div className="format-options8">
-                  <label className="format-option8">
-                    <input
-                      type="radio"
-                      name="format"
-                      value="pdf"
-                      checked={downloadFormat === "pdf"}
-                      onChange={() => setDownloadFormat("pdf")}
-                    />
-                    <span>PDF</span>
-                  </label>
-                  <label className="format-option8">
-                    <input
-                      type="radio"
-                      name="format"
-                      value="docx"
-                      checked={downloadFormat === "docx"}
-                      onChange={() => setDownloadFormat("docx")}
-                    />
-                    <span>Word (DOCX)</span>
-                  </label>
-                </div>
-              </div>
-
-              <button
-                className="download-button8"
-                onClick={() => handleDownloadDocument(downloadFormat)}
-                disabled={isDownloading}
-              >
-                {isDownloading ? (
+                {loading ? (
                   <>
                     <span className="loading-spinner8"></span>
-                    Téléchargement en cours...
+                    Envoi en cours...
                   </>
                 ) : (
-                  `Télécharger le document final (${downloadFormat.toUpperCase()})`
+                  <>
+                    Soumettre
+                    <Upload size={18} />
+                  </>
                 )}
               </button>
             </div>
-          )}
-
-          {entreprise.statut === "rejeté" && (
-            <div className="rejection-section8">
-              <p>Votre demande a été rejetée pour la raison suivante :</p>
-              <div className="rejection-comment8">{entreprise.commentaires || "Aucun commentaire fourni."}</div>
-              <button
-                className="modify-button8"
-                onClick={() => {
-                  setSelectedType(entreprise.type)
-                  setStep(2) // Retour au formulaire avec les anciennes valeurs
-                }}
-              >
-                Modifier ma demande
-              </button>
-            </div>
-          )}
+          </form>
         </div>
       )}
     </div>

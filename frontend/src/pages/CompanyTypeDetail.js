@@ -12,92 +12,119 @@ const CompanyTypeDetail = () => {
   useEffect(() => {
     // Données pour chaque type d'entreprise
     const companyTypes = {
-        sarl: {
-          title: "SARL",
-          fullTitle: "Société à Responsabilité Limitée",
-          image: "/images/img3.png",
-          description:
-            "La SARL est une société commerciale composée de 2 à 100 associés. Elle est encadrée par la loi et convient particulièrement aux petites et moyennes entreprises familiales. La responsabilité des associés est limitée au montant de leurs apports.",
-          advantages: [
-            "Responsabilité limitée des associés",
-            "Cadre juridique sécurisé, encadré par la loi",
-            "Idéale pour les projets en famille ou entre associés de confiance",
-            "Peut opter pour l'impôt sur le revenu sous conditions",
-            "Pas de capital social minimum imposé (1€ symbolique possible)"
-          ],
-          disadvantages: [
-            "Souplesse de fonctionnement limitée par rapport à une SAS",
-            "Régime social du gérant majoritaire moins protecteur (TNS)",
-            "Statuts assez rigides, difficile à modifier",
-            "Peu attractive pour les investisseurs externes",
-            "Formalités de gestion parfois lourdes"
-          ],
-          steps: [
-            "Rédaction des statuts avec les associés",
-            "Dépôt des apports en capital (en numéraire ou en nature)",
-            "Publication d’une annonce légale de constitution",
-            "Dépôt du dossier de création au greffe",
-            "Obtention du Kbis après immatriculation au RCS"
-          ]
-        },
-        sasu: {
-          title: "SASU",
-          fullTitle: "Société par Actions Simplifiée Unipersonnelle",
-          image: "/images/img7.png",
-          description:
-            "La SASU est une société par actions simplifiée à associé unique. Elle permet à une seule personne de créer une société avec une grande liberté statutaire. Elle est souvent choisie pour son image professionnelle et sa flexibilité.",
-          advantages: [
-            "Responsabilité limitée à l’apport",
-            "Souplesse dans la rédaction des statuts",
-            "Président assimilé salarié (protection sociale complète)",
-            "Facilité d’évolution vers une SAS avec plusieurs associés",
-            "Capital social librement fixé (à partir de 1€)"
-          ],
-          disadvantages: [
-            "Cotisations sociales plus élevées (URSSAF, retraite, etc.)",
-            "Pas d'assurance chômage pour le président",
-            "Obligations comptables similaires à celles des grandes entreprises",
-            "Coût de fonctionnement plus élevé qu'une micro-entreprise",
-            "Moins adapté si le projet est très simple"
-          ],
-          steps: [
-            "Rédaction des statuts par l'associé unique",
-            "Dépôt du capital social en banque",
-            "Publication dans un journal d'annonces légales",
-            "Dépôt du dossier au greffe du tribunal de commerce",
-            "Immatriculation au Registre du Commerce et des Sociétés (RCS)"
-          ]
-        },
-        sas: {
-          title: "SAS",
-          fullTitle: "Société par Actions Simplifiée",
-          image: "/images/img4.jpg",
-          description:
-            "La SAS est une société commerciale très flexible, adaptée aux projets innovants ou aux entreprises en croissance. Elle permet une organisation sur mesure grâce à une grande liberté dans la rédaction des statuts.",
-          advantages: [
-            "Responsabilité limitée des associés",
-            "Liberté totale dans la gestion (statuts personnalisables)",
-            "Structure idéale pour accueillir des investisseurs",
-            "Image professionnelle auprès des partenaires",
-            "Capital social libre à partir de 1€"
-          ],
-          disadvantages: [
-            "Formalités juridiques et comptables importantes",
-            "Charges sociales élevées pour les dirigeants",
-            "Nécessite des statuts bien rédigés (souvent avec un expert)",
-            "Pas d’assurance chômage pour le président",
-            "Coûts de fonctionnement supérieurs à une SARL"
-          ],
-          steps: [
-            "Rédaction des statuts avec les associés",
-            "Dépôt du capital social dans une banque",
-            "Publication d’une annonce légale de création",
-            "Dépôt du dossier au greffe compétent",
-            "Obtention de l'extrait Kbis après immatriculation"
-          ]
-        }
-    
-      
+      sarl: {
+        title: "SARL",
+        fullTitle: "Société à Responsabilité Limitée",
+        image: "/images/img3.png",
+        description:
+          "La SARL est une société commerciale composée de 2 à 100 associés. Elle est encadrée par la loi et convient particulièrement aux petites et moyennes entreprises familiales. La responsabilité des associés est limitée au montant de leurs apports.",
+        advantages: [
+          "Responsabilité limitée des associés",
+          "Cadre juridique sécurisé, encadré par la loi",
+          "Idéale pour les projets en famille ou entre associés de confiance",
+          "Peut opter pour l'impôt sur le revenu sous conditions",
+          "Pas de capital social minimum imposé (1€ symbolique possible)",
+        ],
+        disadvantages: [
+          "Souplesse de fonctionnement limitée par rapport à une SAS",
+          "Régime social du gérant majoritaire moins protecteur (TNS)",
+          "Statuts assez rigides, difficile à modifier",
+          "Peu attractive pour les investisseurs externes",
+          "Formalités de gestion parfois lourdes",
+        ],
+        steps: [
+          "Rédaction des statuts avec les associés",
+          "Dépôt des apports en capital (en numéraire ou en nature)",
+          "Publication d'une annonce légale de constitution",
+          "Dépôt du dossier de création au greffe",
+          "Obtention du Kbis après immatriculation au RCS",
+        ],
+      },
+      sasu: {
+        title: "SASU",
+        fullTitle: "Société par Actions Simplifiée Unipersonnelle",
+        image: "/images/img7.png",
+        description:
+          "La SASU est une société par actions simplifiée à associé unique. Elle permet à une seule personne de créer une société avec une grande liberté statutaire. Elle est souvent choisie pour son image professionnelle et sa flexibilité.",
+        advantages: [
+          "Responsabilité limitée à l'apport",
+          "Souplesse dans la rédaction des statuts",
+          "Président assimilé salarié (protection sociale complète)",
+          "Facilité d'évolution vers une SAS avec plusieurs associés",
+          "Capital social librement fixé (à partir de 1€)",
+        ],
+        disadvantages: [
+          "Cotisations sociales plus élevées (URSSAF, retraite, etc.)",
+          "Pas d'assurance chômage pour le président",
+          "Obligations comptables similaires à celles des grandes entreprises",
+          "Coût de fonctionnement plus élevé qu'une micro-entreprise",
+          "Moins adapté si le projet est très simple",
+        ],
+        steps: [
+          "Rédaction des statuts par l'associé unique",
+          "Dépôt du capital social en banque",
+          "Publication dans un journal d'annonces légales",
+          "Dépôt du dossier au greffe du tribunal de commerce",
+          "Immatriculation au Registre du Commerce et des Sociétés (RCS)",
+        ],
+      },
+      sas: {
+        title: "SAS",
+        fullTitle: "Société par Actions Simplifiée",
+        image: "/images/img4.jpg",
+        description:
+          "La SAS est une société commerciale très flexible, adaptée aux projets innovants ou aux entreprises en croissance. Elle permet une organisation sur mesure grâce à une grande liberté dans la rédaction des statuts.",
+        advantages: [
+          "Responsabilité limitée des associés",
+          "Liberté totale dans la gestion (statuts personnalisables)",
+          "Structure idéale pour accueillir des investisseurs",
+          "Image professionnelle auprès des partenaires",
+          "Capital social libre à partir de 1€",
+        ],
+        disadvantages: [
+          "Formalités juridiques et comptables importantes",
+          "Charges sociales élevées pour les dirigeants",
+          "Nécessite des statuts bien rédigés (souvent avec un expert)",
+          "Pas d'assurance chômage pour le président",
+          "Coûts de fonctionnement supérieurs à une SARL",
+        ],
+        steps: [
+          "Rédaction des statuts avec les associés",
+          "Dépôt du capital social dans une banque",
+          "Publication d'une annonce légale de création",
+          "Dépôt du dossier au greffe compétent",
+          "Obtention de l'extrait Kbis après immatriculation",
+        ],
+      },
+      // Ajout des données pour l'EURL
+      eurl: {
+        title: "EURL",
+        fullTitle: "Entreprise Unipersonnelle à Responsabilité Limitée",
+        image: "/images/imggggg.png",
+        description:
+          "L'EURL est une variante de la SARL avec un seul associé. C'est une structure juridique idéale pour l'entrepreneur individuel qui souhaite séparer son patrimoine personnel de celui de son entreprise tout en gardant le contrôle total.",
+        advantages: [
+          "Responsabilité limitée aux apports (protection du patrimoine personnel)",
+          "Régime fiscal flexible (IS ou IR au choix)",
+          "Statut social de travailleur non salarié (TNS) pour le gérant",
+          "Possibilité d'évoluer facilement vers une SARL en ajoutant des associés",
+          "Crédibilité auprès des partenaires commerciaux et financiers",
+        ],
+        disadvantages: [
+          "Formalités de création plus complexes qu'une micro-entreprise",
+          "Coûts de fonctionnement plus élevés (comptabilité obligatoire)",
+          "Protection sociale moins avantageuse qu'en SASU",
+          "Moins de souplesse statutaire qu'une SAS/SASU",
+          "Impossibilité d'avoir plusieurs associés (sinon transformation en SARL)",
+        ],
+        steps: [
+          "Rédaction des statuts par l'associé unique",
+          "Dépôt du capital social (à partir de 1€)",
+          "Publication d'une annonce légale",
+          "Dépôt du dossier complet au greffe du tribunal de commerce",
+          "Obtention du Kbis après immatriculation au RCS",
+        ],
+      },
     }
 
     setCompanyData(companyTypes[type] || null)
@@ -110,7 +137,9 @@ const CompanyTypeDetail = () => {
         <div className="container">
           <div className="company-detail-not-found">
             <h2>Type d'entreprise non trouvé</h2>
-            <Link to="/" className="back-link">Retour à l'accueil</Link>
+            <Link to="/" className="back-link">
+              Retour à l'accueil
+            </Link>
           </div>
         </div>
         <Footer />
@@ -141,7 +170,7 @@ const CompanyTypeDetail = () => {
           <div className="container">
             <div className="company-detail-grid">
               <div className="company-detail-image">
-                <img src={companyData.image} alt={companyData.title} />
+                <img src={companyData.image || "/placeholder.svg"} alt={companyData.title} />
               </div>
               <div className="company-detail-description">
                 <h2 className="detail-section-title">Qu'est-ce qu'une {companyData.title} ?</h2>
@@ -196,7 +225,6 @@ const CompanyTypeDetail = () => {
               ))}
             </div>
             <div className="detail-actions">
-          
               <Link to="/" state={{ scrollTo: "contact-section" }} className="detail-contact-button">
                 Nous contacter pour plus d'informations
               </Link>

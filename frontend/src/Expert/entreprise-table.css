@@ -1,0 +1,328 @@
+/* Styles pour la table des entreprises */
+.v5-entreprises-container {
+  background-color: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.v5-entreprises-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.v5-entreprises-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.v5-refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  background-color: #f8f9fa;
+  color: #495057;
+  border: 1px solid #e9ecef;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.v5-refresh-btn:hover {
+  background-color: #e9ecef;
+}
+
+.v5-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.v5-entreprises-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  table-layout: fixed;
+}
+
+.v5-entreprises-table th,
+.v5-entreprises-table td {
+  width: 25%;
+  box-sizing: border-box;
+}
+
+.v5-entreprises-table th {
+  background-color: #f8f9fa;
+  text-align: left;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.v5-entreprises-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e9ecef;
+  vertical-align: middle;
+}
+
+.v5-entreprises-table tr:hover {
+  background-color: #f8f9fa;
+}
+
+.v5-entreprises-table .v5-status-cell {
+  width: 25%;
+}
+
+.v5-entreprises-table .v5-actions-cell {
+  width: 25%;
+  text-align: center;
+}
+
+.v5-entreprise-status {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.v5-entreprise-status.v5-en_attente {
+  background-color: rgba(243, 156, 18, 0.1);
+  color: #f39c12;
+}
+
+.v5-entreprise-status.v5-validé {
+  background-color: rgba(46, 204, 113, 0.1);
+  color: #2ecc71;
+}
+
+.v5-entreprise-status.v5-rejeté {
+  background-color: rgba(231, 76, 60, 0.1);
+  color: #e74c3c;
+}
+
+.v5-entreprise-action-btn {
+  padding: 0.375rem;
+  border-radius: 0.25rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  background-color: #3498db;
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.v5-entreprise-action-btn:hover {
+  background-color: #2980b9;
+}
+
+.v5-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  background-color: rgba(231, 76, 60, 0.1);
+  color: #e74c3c;
+  border-radius: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+.v5-retry-btn {
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-size: 0.75rem;
+  margin-left: auto;
+}
+
+.v5-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: #6c757d;
+}
+
+.v5-spinner {
+  width: 2rem;
+  height: 2rem;
+  border: 0.25rem solid #f3f3f3;
+  border-top: 0.25rem solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+.v5-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: #6c757d;
+}
+
+.v5-empty-icon {
+  margin-bottom: 1rem;
+  color: #adb5bd;
+}
+
+/* Entreprise detail styles */
+.v5-entreprise-detail {
+  background-color: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+  margin-top: 2rem;
+}
+
+.v5-entreprise-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.v5-entreprise-detail-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.v5-comparison-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.v5-comparison-column {
+  background-color: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+}
+
+.v5-comparison-column h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1.125rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.v5-info-item {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.v5-info-item:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.v5-variables-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.5rem;
+}
+
+.v5-variable-item {
+  display: flex;
+  justify-content: space-between;
+  background-color: white;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  border: 1px solid #e9ecef;
+}
+
+.v5-id-card-container {
+  margin-top: 1rem;
+}
+
+.v5-id-card-image {
+  max-width: 100%;
+  max-height: 300px;
+  border: 1px solid #e9ecef;
+  border-radius: 0.25rem;
+}
+
+.v5-id-card-info {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: #6c757d;
+}
+
+.v5-validation-section {
+  margin-top: 2rem;
+  background-color: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+}
+
+.v5-validation-section h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1.125rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.v5-comments-textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: 0.25rem;
+  border: 1px solid #e9ecef;
+  resize: vertical;
+  margin-bottom: 1rem;
+}
+
+.v5-validation-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.v5-action-icon {
+  margin-right: 0.25rem;
+}
+
+@media (max-width: 992px) {
+  .v5-comparison-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .v5-entreprises-table th:nth-child(3),
+  .v5-entreprises-table td:nth-child(3) {
+    display: none;
+  }
+}
