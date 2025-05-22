@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import axios from "axios"
 import "../styles/creation-entreprise.css"
@@ -20,6 +20,9 @@ const CreationEntreprise = () => {
   const [success, setSuccess] = useState("")
   const [templateInfo, setTemplateInfo] = useState(null)
   const [existingEntreprises, setExistingEntreprises] = useState([])
+
+  // Référence pour le formulaire
+  const formRef = useRef(null)
 
   // Récupérer les types d'entreprise disponibles et les entreprises existantes
   useEffect(() => {
@@ -75,9 +78,16 @@ const CreationEntreprise = () => {
           })
 
           setTemplateInfo(templateResponse.data)
+          console.log("Template data:", templateResponse.data)
 
           // Récupérer les documents et leurs variables
           const documents = templateResponse.data.documents || []
+
+          // Log pour déboguer
+          documents.forEach((doc) => {
+            console.log(`Document ${doc.titre} variables:`, doc.variables)
+          })
+
           setDocuments(documents)
 
           // Initialiser les valeurs du formulaire pour tous les documents
@@ -102,6 +112,44 @@ const CreationEntreprise = () => {
       fetchTemplateData()
     }
   }, [selectedType])
+
+  // Effet pour modifier le DOM après le rendu
+  useEffect(() => {
+    if (step === 2 && formRef.current) {
+      // Supprimer tous les textes "Texte libre"
+      const paragraphs = formRef.current.querySelectorAll("p")
+      paragraphs.forEach((p) => {
+        if (p.textContent.trim() === "Texte libre") {
+          p.style.display = "none"
+        }
+      })
+
+      // Modifier les types d'input en fonction du nom du champ
+      const inputs = formRef.current.querySelectorAll("input")
+      inputs.forEach((input) => {
+        const name = (input.name || "").toLowerCase()
+
+        // Changer le type d'input en fonction du nom
+        if (name.includes("date")) {
+          input.type = "date"
+        } else if (
+          name.includes("montant") ||
+          name.includes("capital") ||
+          name.includes("nombre") ||
+          name.includes("num")
+        ) {
+          input.type = "number"
+        } else if (name.includes("email")) {
+          input.type = "email"
+        } else if (name.includes("tel") || name.includes("telephone")) {
+          input.type = "tel"
+        }
+
+        // Ajouter des classes CSS pour le style
+        input.classList.add("form-control8")
+      })
+    }
+  }, [step, currentDocIndex, documents])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -270,11 +318,50 @@ const CreationEntreprise = () => {
     return documents[currentDocIndex]
   }
 
+  // Fonction pour déterminer le type d'input en fonction du nom et du type de la variable
+  const getInputType = (variable) => {
+    // Vérifier d'abord le type explicite
+    if (variable.type) {
+      switch (variable.type.toLowerCase()) {
+        case "date":
+          return "date"
+        case "datetime":
+          return "datetime-local"
+        case "number":
+          return "number"
+        case "email":
+          return "email"
+        case "tel":
+          return "tel"
+        case "boolean":
+          return "checkbox"
+        case "select":
+          return "select"
+        default:
+          return "text"
+      }
+    }
+
+    // Sinon, détecter en fonction du nom
+    const nom = variable.nom.toLowerCase()
+    if (nom.includes("date")) {
+      return "date"
+    } else if (nom.includes("montant") || nom.includes("capital") || nom.includes("nombre") || nom.includes("num")) {
+      return "number"
+    } else if (nom.includes("email")) {
+      return "email"
+    } else if (nom.includes("tel") || nom.includes("telephone")) {
+      return "tel"
+    } else if (nom.includes("est_") || nom.includes("bool")) {
+      return "checkbox"
+    }
+
+    return "text" // Par défaut
+  }
+
   return (
     <div className="creation-entreprise-container8">
       <h1 className="creation-title8">Création d'entreprise</h1>
-
-      
 
       <div className="creation-steps8">
         <div className={`creation-step8 ${step === 1 ? "active8" : ""} ${step > 1 ? "completed8" : ""}`}>
@@ -348,67 +435,75 @@ const CreationEntreprise = () => {
             <div className="progress8" style={{ width: `${((currentDocIndex + 1) / documents.length) * 100}%` }}></div>
           </div>
 
-          <form>
+          <form ref={formRef}>
             {getCurrentDocument().variables &&
-              getCurrentDocument().variables.map((variable) => (
-                <div key={variable.nom} className="form-group8">
-                  <label>
-                    {variable.nom}
-                    {variable.obligatoire && <span className="required8">*</span>}
-                  </label>
+              getCurrentDocument().variables.map((variable) => {
+                const inputType = getInputType(variable)
 
-                  {variable.type === "select" ? (
-                    <select
-                      name={variable.nom}
-                      value={formValues[variable.nom] || ""}
-                      onChange={handleInputChange}
-                      required={variable.obligatoire}
-                    >
-                      <option value="">Sélectionnez une option</option>
-                      {(variable.valeur_defaut && typeof variable.valeur_defaut === "string"
-                        ? JSON.parse(variable.valeur_defaut || "[]")
-                        : []
-                      ).map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
-                  ) : variable.type === "boolean" ? (
-                    <input
-                      type="checkbox"
-                      name={variable.nom}
-                      checked={formValues[variable.nom] === "true"}
-                      onChange={(e) =>
-                        handleInputChange({
-                          target: {
-                            name: variable.nom,
-                            value: e.target.checked ? "true" : "false",
-                          },
-                        })
-                      }
-                    />
-                  ) : (
-                    <input
-                      type={
-                        variable.type === "number"
-                          ? "number"
-                          : variable.type === "date"
-                            ? "date"
-                            : variable.type === "email"
-                              ? "email"
-                              : "text"
-                      }
-                      name={variable.nom}
-                      value={formValues[variable.nom] || ""}
-                      onChange={handleInputChange}
-                      required={variable.obligatoire}
-                    />
-                  )}
+                return (
+                  <div key={variable.nom} className="form-group8">
+                    <label>
+                      {variable.nom}
+                      {variable.obligatoire && <span className="required8">*</span>}
+                    </label>
 
-                  {variable.description && <p className="variable-description8">{variable.description}</p>}
-                </div>
-              ))}
+                    {inputType === "checkbox" ? (
+                      <div className="checkbox-container8">
+                        <input
+                          type="checkbox"
+                          id={`checkbox-${variable.nom}`}
+                          name={variable.nom}
+                          checked={formValues[variable.nom] === "true"}
+                          onChange={(e) =>
+                            handleInputChange({
+                              target: {
+                                name: variable.nom,
+                                value: e.target.checked ? "true" : "false",
+                              },
+                            })
+                          }
+                          className="form-checkbox8"
+                        />
+                        <label htmlFor={`checkbox-${variable.nom}`} className="checkbox-label8">
+                          {variable.description || ""}
+                        </label>
+                      </div>
+                    ) : inputType === "select" ? (
+                      <select
+                        name={variable.nom}
+                        value={formValues[variable.nom] || ""}
+                        onChange={handleInputChange}
+                        required={variable.obligatoire}
+                        className="form-control8"
+                      >
+                        <option value="">Sélectionnez une option</option>
+                        {(variable.valeur_defaut && typeof variable.valeur_defaut === "string"
+                          ? JSON.parse(variable.valeur_defaut || "[]")
+                          : []
+                        ).map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type={inputType}
+                        name={variable.nom}
+                        value={formValues[variable.nom] || ""}
+                        onChange={handleInputChange}
+                        required={variable.obligatoire}
+                        className="form-control8"
+                      />
+                    )}
+
+                    {/* Remplacer "Texte libre" par la description si elle existe */}
+                    {variable.description && inputType !== "checkbox" && (
+                      <p className="variable-description8">{variable.description}</p>
+                    )}
+                  </div>
+                )
+              })}
 
             <div className="form-actions8">
               <button type="button" className="secondary-button8" onClick={handlePreviousDocument}>
@@ -469,7 +564,13 @@ const CreationEntreprise = () => {
           <form onSubmit={handleSubmit}>
             <div className="form-group8">
               <label>Pièce d'identité (PDF ou image)</label>
-              <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileChange} required />
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={handleFileChange}
+                required
+                className="file-input8"
+              />
             </div>
 
             <div className="form-actions8">

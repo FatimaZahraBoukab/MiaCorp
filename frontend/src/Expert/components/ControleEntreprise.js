@@ -1,10 +1,19 @@
 "use client"
 
-import React from "react"
-
 import { useState, useEffect } from "react"
 import axios from "axios"
-import { Building2, AlertCircle, RefreshCw, Eye, CheckCircle, XCircle } from "lucide-react"
+import {
+  Building2,
+  AlertCircle,
+  RefreshCw,
+  Eye,
+  CheckCircle,
+  XCircle,
+  Search,
+  FileText,
+  Calendar,
+  User,
+} from "lucide-react"
 import "../entreprise-table.css"
 
 const ControleEntrepriseV5 = ({ entreprises: initialEntreprises, fetchEntreprises, setSuccessMsg, setErrorMsg }) => {
@@ -14,6 +23,7 @@ const ControleEntrepriseV5 = ({ entreprises: initialEntreprises, fetchEntreprise
   const [allEntreprises, setAllEntreprises] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [loadError, setLoadError] = useState(null)
+  const [searchTerm, setSearchTerm] = useState("")
 
   // Récupérer toutes les entreprises au chargement du composant
   useEffect(() => {
@@ -134,271 +144,227 @@ const ControleEntrepriseV5 = ({ entreprises: initialEntreprises, fetchEntreprise
     }
   }
 
-  return React.createElement(
-    "div",
-    { className: "v5-entreprises-container" },
-    selectedEntreprise
-      ? React.createElement(
-          "div",
-          { className: "v5-entreprise-detail" },
-          React.createElement(
-            "div",
-            { className: "v5-entreprise-detail-header" },
-            React.createElement("h2", null, selectedEntreprise.nom),
-            React.createElement(
-              "button",
-              {
-                className: "v5-back-btn",
-                onClick: () => setSelectedEntreprise(null),
-              },
-              "Retour",
-            ),
-          ),
+  // Filtrer les variables en fonction du terme de recherche
+  const getFilteredVariables = (variables) => {
+    if (!searchTerm || !variables) return variables
 
-          React.createElement(
-            "div",
-            { className: "v5-comparison-grid" },
-            React.createElement(
-              "div",
-              { className: "v5-comparison-column" },
-              React.createElement("h3", null, "Informations soumises"),
-              React.createElement(
-                "div",
-                { className: "v5-info-item" },
-                React.createElement("strong", null, "Type:"),
-                " ",
-                selectedEntreprise.type,
-              ),
-              React.createElement(
-                "div",
-                { className: "v5-info-item" },
-                React.createElement("strong", null, "Date de création:"),
-                " ",
-                new Date(selectedEntreprise.date_creation).toLocaleDateString("fr-FR"),
-              ),
-              React.createElement(
-                "div",
-                { className: "v5-info-item" },
-                React.createElement("strong", null, "Statut:"),
-                " ",
-                React.createElement(
-                  "span",
-                  {
-                    className: `v5-entreprise-status v5-${selectedEntreprise.statut || "en_attente"}`,
-                  },
-                  getStatusLabel(selectedEntreprise.statut || "en_attente"),
-                ),
-              ),
+    const lowerSearchTerm = searchTerm.toLowerCase()
+    const filteredEntries = Object.entries(variables).filter(([key, value]) => {
+      return key.toLowerCase().includes(lowerSearchTerm) || String(value).toLowerCase().includes(lowerSearchTerm)
+    })
 
-              React.createElement("h3", null, "Variables du document"),
-              selectedEntreprise.valeurs_variables && Object.keys(selectedEntreprise.valeurs_variables).length > 0
-                ? React.createElement(
-                    "div",
-                    { className: "v5-variables-list" },
-                    Object.entries(selectedEntreprise.valeurs_variables).map(([key, value], index) =>
-                      React.createElement(
-                        "div",
-                        { key: index, className: "v5-variable-item" },
-                        React.createElement("span", { className: "v5-variable-name" }, key),
-                        React.createElement("span", { className: "v5-variable-value" }, value),
+    return Object.fromEntries(filteredEntries)
+  }
+
+  return (
+    <div className="v5-entreprises-container">
+      {selectedEntreprise ? (
+        <div className="v5-entreprise-detail">
+          <div className="v5-entreprise-detail-header">
+            <h2>{selectedEntreprise.nom}</h2>
+            <button className="v5-back-btn" onClick={() => setSelectedEntreprise(null)}>
+              Retour
+            </button>
+          </div>
+
+          <div className="v5-comparison-grid">
+            <div className="v5-comparison-column">
+              <h3>
+                <FileText size={18} />
+                Informations soumises
+              </h3>
+              <div className="v5-info-item">
+                <strong>Type:</strong> {selectedEntreprise.type}
+              </div>
+              <div className="v5-info-item">
+                <strong>Date de création:</strong>{" "}
+                {new Date(selectedEntreprise.date_creation).toLocaleDateString("fr-FR")}
+              </div>
+              <div className="v5-info-item">
+                <strong>Statut:</strong>{" "}
+                <span className={`v5-entreprise-status v5-${selectedEntreprise.statut || "en_attente"}`}>
+                  {getStatusLabel(selectedEntreprise.statut || "en_attente")}
+                </span>
+              </div>
+
+              <h3>
+                <Calendar size={18} />
+                Variables du document
+              </h3>
+
+              {selectedEntreprise.valeurs_variables && Object.keys(selectedEntreprise.valeurs_variables).length > 0 ? (
+                <div className="v5-variables-section">
+                  <div className="v5-variables-header">
+                    <div className="v5-variables-search">
+                      <Search size={14} />
+                      <input
+                        type="text"
+                        placeholder="Rechercher une variable..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                    <span className="v5-variables-count">
+                      {Object.keys(selectedEntreprise.valeurs_variables).length} variables
+                    </span>
+                  </div>
+
+                  <div className="v5-variables-list">
+                    {Object.entries(getFilteredVariables(selectedEntreprise.valeurs_variables)).map(
+                      ([key, value], index) => (
+                        <div key={index} className="v5-variable-item">
+                          <span className="v5-variable-name">{key}</span>
+                          <span className="v5-variable-value">{value}</span>
+                        </div>
                       ),
-                    ),
-                  )
-                : React.createElement("p", null, "Aucune variable disponible"),
-            ),
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p>Aucune variable disponible</p>
+              )}
+            </div>
 
-            React.createElement(
-              "div",
-              { className: "v5-comparison-column" },
-              React.createElement("h3", null, "Pièce d'identité"),
-              selectedEntreprise.piece_identite
-                ? React.createElement(
-                    "div",
-                    { className: "v5-id-card-container" },
-                    React.createElement("img", {
-                      src: `data:image/jpeg;base64,${selectedEntreprise.piece_identite.content}`,
-                      alt: "Pièce d'identité",
-                      className: "v5-id-card-image",
-                      onError: (e) => {
-                        e.target.onerror = null
-                        e.target.src = "/placeholder.svg?height=300&width=400"
-                        console.log("Erreur de chargement de l'image")
-                      },
-                    }),
-                    React.createElement(
-                      "div",
-                      { className: "v5-id-card-info" },
-                      React.createElement(
-                        "p",
-                        null,
-                        "Date d'upload: ",
-                        new Date(selectedEntreprise.piece_identite.date_upload).toLocaleDateString("fr-FR"),
-                      ),
-                    ),
-                  )
-                : React.createElement("p", null, "Pièce d'identité non disponible"),
-            ),
-          ),
+            <div className="v5-comparison-column">
+              <h3>
+                <User size={18} />
+                Pièce d'identité
+              </h3>
+              {selectedEntreprise.piece_identite ? (
+                <div className="v5-id-card-container">
+                  <img
+                    src={`data:image/jpeg;base64,${selectedEntreprise.piece_identite.content}`}
+                    alt="Pièce d'identité"
+                    className="v5-id-card-image"
+                    onError={(e) => {
+                      e.target.onerror = null
+                      e.target.src = "/placeholder.svg?height=300&width=400"
+                      console.log("Erreur de chargement de l'image")
+                    }}
+                  />
+                  <div className="v5-id-card-info">
+                    <p>
+                      Date d'upload:{" "}
+                      {new Date(selectedEntreprise.piece_identite.date_upload).toLocaleDateString("fr-FR")}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p>Pièce d'identité non disponible</p>
+              )}
+            </div>
+          </div>
 
-          React.createElement(
-            "div",
-            { className: "v5-validation-section" },
-            React.createElement("h3", null, "Validation"),
-            React.createElement("textarea", {
-              value: comments,
-              onChange: (e) => setComments(e.target.value),
-              placeholder: "Ajoutez vos commentaires ici...",
-              rows: 4,
-              className: "v5-comments-textarea",
-            }),
+          <div className="v5-validation-section">
+            <h3>Validation</h3>
+            <textarea
+              value={comments}
+              onChange={(e) => setComments(e.target.value)}
+              placeholder="Ajoutez vos commentaires ici..."
+              rows={4}
+              className="v5-comments-textarea"
+            />
 
-            React.createElement(
-              "div",
-              { className: "v5-validation-actions" },
-              React.createElement(
-                "button",
-                {
-                  className: "v5-validate-btn",
-                  onClick: () => handleValidateEntreprise(selectedEntreprise.id),
-                  disabled: selectedEntreprise.statut !== "en_attente",
-                },
-                React.createElement(CheckCircle, { size: 16, className: "v5-action-icon" }),
-                "Valider",
-              ),
-              React.createElement(
-                "button",
-                {
-                  className: "v5-reject-btn",
-                  onClick: () => handleRejectEntreprise(selectedEntreprise.id),
-                  disabled: !comments || selectedEntreprise.statut !== "en_attente",
-                },
-                React.createElement(XCircle, { size: 16, className: "v5-action-icon" }),
-                "Rejeter",
-              ),
-            ),
-          ),
-        )
-      : React.createElement(
-          "div",
-          null,
-          React.createElement(
-            "div",
-            { className: "v5-entreprises-header" },
-            React.createElement(
-              "h2",
-              { className: "v5-entreprises-title" },
-              React.createElement(Building2, { size: 24 }),
-              "Entreprises",
-            ),
-            React.createElement(
-              "button",
-              {
-                className: "v5-refresh-btn",
-                onClick: fetchAllEntreprises,
-                disabled: isLoading,
-              },
-              React.createElement(RefreshCw, {
-                size: 16,
-                className: isLoading ? "v5-spin" : "",
-              }),
-              "Actualiser",
-            ),
-          ),
+            <div className="v5-validation-actions">
+              <button
+                className="v5-validate-btn"
+                onClick={() => handleValidateEntreprise(selectedEntreprise.id)}
+                disabled={selectedEntreprise.statut !== "en_attente"}
+              >
+                <CheckCircle size={16} className="v5-action-icon" />
+                Valider
+              </button>
+              <button
+                className="v5-reject-btn"
+                onClick={() => handleRejectEntreprise(selectedEntreprise.id)}
+                disabled={!comments || selectedEntreprise.statut !== "en_attente"}
+              >
+                <XCircle size={16} className="v5-action-icon" />
+                Rejeter
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <div className="v5-entreprises-header">
+            <h2 className="v5-entreprises-title">
+              <Building2 size={24} />
+              Entreprises
+            </h2>
+            <button className="v5-refresh-btn" onClick={fetchAllEntreprises} disabled={isLoading}>
+              <RefreshCw size={16} className={isLoading ? "v5-spin" : ""} />
+              Actualiser
+            </button>
+          </div>
 
-          loadError &&
-            React.createElement(
-              "div",
-              { className: "v5-error-banner" },
-              React.createElement(AlertCircle, { size: 20 }),
-              React.createElement("span", null, loadError),
-              React.createElement(
-                "button",
-                {
-                  className: "v5-retry-btn",
-                  onClick: fetchAllEntreprises,
-                },
-                "Réessayer",
-              ),
-            ),
+          {loadError && (
+            <div className="v5-error-banner">
+              <AlertCircle size={20} />
+              <span>{loadError}</span>
+              <button className="v5-retry-btn" onClick={fetchAllEntreprises}>
+                Réessayer
+              </button>
+            </div>
+          )}
 
-          isLoading
-            ? React.createElement(
-                "div",
-                { className: "v5-loading-state" },
-                React.createElement("div", { className: "v5-spinner" }),
-                React.createElement("p", null, "Chargement des entreprises..."),
-              )
-            : allEntreprises.length === 0 && !loadError
-              ? React.createElement(
-                  "div",
-                  { className: "v5-empty-state" },
-                  React.createElement(Building2, { size: 48, className: "v5-empty-icon" }),
-                  React.createElement("p", null, "Aucune entreprise trouvée"),
-                  React.createElement(
-                    "button",
-                    {
-                      className: "v5-retry-btn",
-                      onClick: fetchAllEntreprises,
-                    },
-                    "Actualiser",
-                  ),
-                )
-              : React.createElement(
-                  "table",
-                  { className: "v5-entreprises-table" },
-                  React.createElement(
-                    "thead",
-                    null,
-                    React.createElement(
-                      "tr",
-                      null,
-                      React.createElement("th", { className: "v5-type-cell", style: { width: "25%" } }, "Type"),
-                      React.createElement(
-                        "th",
-                        { className: "v5-date-cell", style: { width: "25%" } },
-                        "Date de création",
-                      ),
-                      React.createElement("th", { className: "v5-status-cell", style: { width: "25%" } }, "Statut"),
-                      React.createElement("th", { className: "v5-actions-cell", style: { width: "25%" } }, "Actions"),
-                    ),
-                  ),
-                  React.createElement(
-                    "tbody",
-                    null,
-                    allEntreprises.map((entreprise) =>
-                      React.createElement(
-                        "tr",
-                        { key: entreprise.id },
-                        React.createElement("td", null, entreprise.type),
-                        React.createElement("td", null, new Date(entreprise.date_creation).toLocaleDateString("fr-FR")),
-                        React.createElement(
-                          "td",
-                          { className: "v5-status-cell" },
-                          React.createElement(
-                            "span",
-                            {
-                              className: `v5-entreprise-status v5-${entreprise.statut || "en_attente"}`,
-                            },
-                            getStatusLabel(entreprise.statut || "en_attente"),
-                          ),
-                        ),
-                        React.createElement(
-                          "td",
-                          { className: "v5-actions-cell" },
-                          React.createElement(
-                            "button",
-                            {
-                              className: "v5-entreprise-action-btn",
-                              onClick: () => handleSelectEntreprise(entreprise.id),
-                            },
-                            React.createElement(Eye, { size: 16, className: "v5-action-icon" }),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-        ),
+          {isLoading ? (
+            <div className="v5-loading-state">
+              <div className="v5-spinner"></div>
+              <p>Chargement des entreprises...</p>
+            </div>
+          ) : allEntreprises.length === 0 && !loadError ? (
+            <div className="v5-empty-state">
+              <Building2 size={48} className="v5-empty-icon" />
+              <p>Aucune entreprise trouvée</p>
+              <button className="v5-retry-btn" onClick={fetchAllEntreprises}>
+                Actualiser
+              </button>
+            </div>
+          ) : (
+            <table className="v5-entreprises-table">
+              <thead>
+                <tr>
+                  <th className="v5-type-cell" style={{ width: "25%" }}>
+                    Type
+                  </th>
+                  <th className="v5-date-cell" style={{ width: "25%" }}>
+                    Date de création
+                  </th>
+                  <th className="v5-status-cell" style={{ width: "25%" }}>
+                    Statut
+                  </th>
+                  <th className="v5-actions-cell" style={{ width: "25%" }}>
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {allEntreprises.map((entreprise) => (
+                  <tr key={entreprise.id}>
+                    <td>{entreprise.type}</td>
+                    <td>{new Date(entreprise.date_creation).toLocaleDateString("fr-FR")}</td>
+                    <td className="v5-status-cell">
+                      <span className={`v5-entreprise-status v5-${entreprise.statut || "en_attente"}`}>
+                        {getStatusLabel(entreprise.statut || "en_attente")}
+                      </span>
+                    </td>
+                    <td className="v5-actions-cell">
+                      <button
+                        className="v5-entreprise-action-btn"
+                        onClick={() => handleSelectEntreprise(entreprise.id)}
+                      >
+                        <Eye size={16} className="v5-action-icon" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 
