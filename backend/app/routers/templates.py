@@ -357,18 +357,26 @@ async def reject_template(
         raise HTTPException(status_code=404, detail="Template not found")
     
     # Vérifier que des commentaires sont fournis pour le rejet
-    if not data.get("commentaires"):
+    commentaires = data.get("commentaires", "").strip()
+    if not commentaires:
         raise HTTPException(status_code=400, detail="Comments are required for rejection")
     
     # Mettre à jour le statut et les commentaires
     existing_template["statut"] = "rejeté"
-    existing_template["commentaires"] = data.get("commentaires")
+    existing_template["commentaires"] = commentaires  # Utiliser la variable commentaires
     existing_template["date_rejet"] = datetime.now().isoformat()
     existing_template["rejeteur_id"] = current_user["id"]
+    
+    # Log pour debug
+    print(f"Sauvegarde commentaires: '{commentaires}'")
+    print(f"Template avant sauvegarde: {existing_template}")
     
     result = await db.update(template_id, existing_template)
     if not result:
         raise HTTPException(status_code=500, detail="Failed to update template")
+    
+    # Vérifier que les commentaires sont bien sauvegardés
+    print(f"Template après sauvegarde: {result}")
     
     return result
 

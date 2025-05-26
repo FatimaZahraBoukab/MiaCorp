@@ -312,3 +312,163 @@
     max-width: 100px;
   }
 }
+
+/* Modal de commentaire de rejet */
+.v0-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.v0-reject-comment-modal {
+  background-color: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.v0-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e9ecef;
+  background-color: #f8f9fa;
+  border-radius: 0.5rem 0.5rem 0 0;
+}
+
+.v0-modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #495057;
+}
+
+.v0-close-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  color: #6c757d;
+  transition: all 0.2s ease;
+}
+
+.v0-close-button:hover {
+  background-color: #e9ecef;
+  color: #495057;
+}
+
+.v0-modal-content {
+  padding: 1.5rem;
+}
+
+.v0-reject-comment-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.v0-reject-icon-container {
+  margin-bottom: 1rem;
+}
+
+.v0-reject-icon {
+  color: #e74c3c;
+}
+
+.v0-reject-details {
+  width: 100%;
+}
+
+.v0-reject-details h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #495057;
+}
+
+.v0-reject-date {
+  color: #6c757d;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+}
+
+.v0-comment-box {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 0.375rem;
+  padding: 1rem;
+  text-align: left;
+}
+
+.v0-comment-box h5 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #495057;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.v0-comment-box p {
+  margin: 0;
+  color: #495057;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.v0-modal-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #e9ecef;
+  display: flex;
+  justify-content: flex-end;
+  background-color: #f8f9fa;
+  border-radius: 0 0 0.5rem 0.5rem;
+}
+
+/* Bouton info pour les templates rejetés */
+.v0-btn-info {
+  background-color: #17a2b8;
+  color: white;
+  border-color: #17a2b8;
+}
+
+.v0-btn-info:hover {
+  background-color: #138496;
+  border-color: #117a8b;
+  color: white;
+}
+
+/* Responsive */
+@media (max-width: 576px) {
+  .v0-reject-comment-modal {
+    width: 95%;
+    margin: 1rem;
+  }
+
+  .v0-modal-header,
+  .v0-modal-content,
+  .v0-modal-footer {
+    padding: 1rem;
+  }
+
+  .v0-reject-comment-container {
+    text-align: left;
+  }
+
+  .v0-reject-icon-container {
+    text-align: center;
+  }
+}

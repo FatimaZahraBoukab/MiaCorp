@@ -1,0 +1,47 @@
+.conversation-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #17a2b8;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 36px;
+  height: 36px;
+}
+
+.conversation-btn:hover {
+  background-color: #138496;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(23, 162, 184, 0.2);
+}
+
+.conversation-btn:active {
+  transform: translateY(0);
+}
+
+/* Variantes de taille */
+.conversation-btn.small {
+  padding: 6px;
+  min-width: 32px;
+  height: 32px;
+}
+
+.conversation-btn.large {
+  padding: 12px;
+  min-width: 44px;
+  height: 44px;
+}
+
+/* Variante pour les tableaux */
+.conversation-btn.table-action {
+  background-color: #17a2b8;
+  margin-right: 5px;
+}
+
+.conversation-btn.table-action:hover {
+  background-color: #138496;
+}

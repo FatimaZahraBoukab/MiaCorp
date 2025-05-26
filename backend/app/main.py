@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from app.routers import users, auth, templates, entreprises
 from app.routers import contact
 from app.routers import documents_export
+from app.routers import conversations
 
 
 # Initialize FastAPI app
@@ -55,6 +56,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(contact.router)
 app.include_router(documents_export.router)
+app.include_router(conversations.router)
 
 @app.get("/")
 async def root():

@@ -1,0 +1,117 @@
+.conversation-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #17a2b8;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 36px;
+  height: 36px;
+  position: relative; /* Pour positionner le badge */
+}
+
+.conversation-btn:hover {
+  background-color: #138496;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(23, 162, 184, 0.2);
+}
+
+.conversation-btn:active {
+  transform: translateY(0);
+}
+
+/* Badge de notification */
+.notification-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background-color: #dc3545;
+  color: white;
+  border-radius: 50%;
+  min-width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
+  line-height: 1;
+  padding: 2px;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+  border: 2px solid white;
+}
+
+/* Ajustement pour les très petits nombres */ 
+.notification-badge:has-text("1"), 
+.notification-badge:has-text("2"), 
+.notification-badge:has-text("3"), 
+.notification-badge:has-text("4"), 
+.notification-badge:has-text("5"), 
+.notification-badge:has-text("6"), 
+.notification-badge:has-text("7"), 
+.notification-badge:has-text("8"), 
+.notification-badge:has-text("9") {
+  min-width: 16px;
+  height: 16px;
+  font-size: 9px;
+}
+
+/* Animation pour attirer l'attention */
+.notification-badge {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Variantes de taille */
+.conversation-btn.small {
+  padding: 6px;
+  min-width: 32px;
+  height: 32px;
+}
+
+.conversation-btn.small .notification-badge {
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  font-size: 9px;
+}
+
+.conversation-btn.large {
+  padding: 12px;
+  min-width: 44px;
+  height: 44px;
+}
+
+.conversation-btn.large .notification-badge {
+  top: -8px;
+  right: -8px;
+  min-width: 20px;
+  height: 20px;
+  font-size: 11px;
+}
+
+/* Variante pour les tableaux */
+.conversation-btn.table-action {
+  background-color: #17a2b8;
+  margin-right: 5px;
+}
+
+.conversation-btn.table-action:hover {
+  background-color: #138496;
+}

@@ -1,5 +1,4 @@
 from pydantic import BaseModel, Field, EmailStr
-
 from typing import List, Optional, Dict, Any
 from enum import Enum 
 from datetime import datetime
@@ -15,7 +14,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     mot_de_passe: str
-    role: str = "client"  # Default role is client
+    role: str = "client"
 
 class User(UserBase):
     id: str
@@ -34,7 +33,6 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     email: Optional[str] = None
     role: Optional[str] = None
-
 
 # Client Models
 class ClientBase(UserBase):
@@ -58,7 +56,6 @@ class ExpertJuridiqueCreate(UserCreate, ExpertJuridiqueBase):
 class ExpertJuridique(User, ExpertJuridiqueBase):
     pass
 
-
 class TypeEntreprise(str, Enum):
     SAS = "SAS"
     SARL = "SARL"
@@ -70,14 +67,14 @@ class Entreprise(BaseModel):
     type: TypeEntreprise
     client_id: str
     date_creation: datetime
-    statut: str = "en_attente"  # en_attente, actif, inactif
+    statut: str = "en_attente"
     valeurs_variables: Dict[str, str]
 
 class TemplateVariable(BaseModel):
     id: str
     nom: str
     description: Optional[str] = None
-    type: str  # text, number, date, etc.
+    type: str
     obligatoire: bool = True
     valeur_defaut: Optional[str] = None
 
@@ -93,19 +90,17 @@ class DocumentTemplate(BaseModel):
     titre: str
     description: Optional[str] = None
     type_entreprise: TypeEntreprise
-    documents: List[GoogleDocument]  # Remplace google_doc_id et google_doc_url
+    documents: List[GoogleDocument]
     variables: List[TemplateVariable]
     est_actif: bool = True
     statut: str = "en_attente"
     date_creation: datetime
 
-# Modifiez la classe DocumentTemplateCreate
 class DocumentTemplateCreate(BaseModel):
     titre: str
     description: Optional[str] = None
     type_entreprise: TypeEntreprise
-    documents: List[GoogleDocument]  # Remplace google_doc_id
-
+    documents: List[GoogleDocument]
 
 class Document(BaseModel):
     id: str
@@ -113,8 +108,8 @@ class Document(BaseModel):
     entreprise_id: str
     client_id: str
     valeurs_variables: Dict[str, str]
-    google_doc_id: Optional[str] = None  # ID du document généré
-    statut: str = "brouillon"  # brouillon, en_review, validé, rejeté
+    google_doc_id: Optional[str] = None
+    statut: str = "brouillon"
     commentaires: Optional[str] = None
     expert_id: Optional[str] = None
     date_creation: datetime
@@ -137,3 +132,64 @@ class ContactMessageCreate(BaseModel):
 
 class ContactMessage(ContactMessageCreate):
     id: str
+
+# NOUVEAUX MODÈLES POUR LES ATTACHEMENTS
+class MessageAttachment(BaseModel):
+    id: str
+    nom_fichier: str
+    type_fichier: str  # image, document, pdf, etc.
+    taille_fichier: int  # en bytes
+    url_fichier: str  # chemin vers le fichier stocké
+    date_upload: datetime
+
+class MessageAttachmentCreate(BaseModel):
+    nom_fichier: str
+    type_fichier: str
+    taille_fichier: int
+    contenu_base64: str  # contenu du fichier en base64
+
+# MODÈLES DE MESSAGES MODIFIÉS
+class MessageCreate(BaseModel):
+    contenu: str
+    conversation_id: str
+    attachments: Optional[List[MessageAttachmentCreate]] = []
+
+class Message(BaseModel):
+    id: str
+    conversation_id: str
+    expediteur_id: str
+    expediteur_nom: str
+    expediteur_role: str
+    contenu: str
+    date_envoi: datetime
+    lu: bool = False
+    attachments: List[MessageAttachment] = []  # NOUVEAU CHAMP
+
+class ConversationCreate(BaseModel):
+    entreprise_id: str
+    sujet: Optional[str] = "Discussion sur la demande"
+
+class Conversation(BaseModel):
+    id: str
+    entreprise_id: str
+    client_id: str
+    expert_id: Optional[str] = None
+    sujet: str
+    date_creation: datetime
+    derniere_activite: datetime
+    statut: str = "active"
+    messages: List[Message] = []
+    non_lus_client: int = 0
+    non_lus_expert: int = 0
+
+class ConversationSummary(BaseModel):
+    id: str
+    entreprise_id: str
+    entreprise_type: str
+    client_nom: str
+    expert_nom: Optional[str] = None
+    sujet: str
+    derniere_activite: datetime
+    dernier_message: Optional[str] = None
+    non_lus: int = 0
+    statut: str
