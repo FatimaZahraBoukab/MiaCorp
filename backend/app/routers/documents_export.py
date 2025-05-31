@@ -4,6 +4,7 @@ from ..couchdb import CouchDB
 from .auth import get_current_active_user
 import io
 import re
+import json
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
@@ -14,6 +15,7 @@ from reportlab.lib.units import inch, cm
 from reportlab.platypus.flowables import HRFlowable
 import logging
 from ..utils.google_docs_utils import get_google_doc_content, extract_doc_id_from_url
+from datetime import datetime
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
@@ -41,6 +43,188 @@ DOCUMENTS_COLLECTION = "documents"
 ENTREPRISES_COLLECTION = "entreprises"
 TEMPLATES_COLLECTION = "templates"
 
+class DocumentLoopProcessor:
+    """Processeur pour gérer les boucles dans les documents."""
+    
+    def __init__(self):
+        self.loop_patterns = {
+            'ACTIONNAIRES': r'{{#LOOP_ACTIONNAIRES}}(.*?){{/LOOP_ACTIONNAIRES}}',
+            'GERANTS': r'{{#LOOP_GERANTS}}(.*?){{/LOOP_GERANTS}}',
+            'PRESIDENTS': r'{{#LOOP_PRESIDENTS}}(.*?){{/LOOP_PRESIDENTS}}',
+        }
+        
+        self.condition_patterns = {
+            'IF_GERANT': r'{{#IF_GERANT}}(.*?){{/IF_GERANT}}',
+            'IF_PRESIDENT': r'{{#IF_PRESIDENT}}(.*?){{/IF_PRESIDENT}}',
+        }
+    
+    def process_document(self, content: str, variables: dict) -> str:
+        """Traite un document complet avec toutes les boucles et conditions."""
+        logger.info("Début du traitement des boucles dans le document")
+        
+        # Traiter les boucles
+        for loop_type, pattern in self.loop_patterns.items():
+            content = self._process_loop(content, pattern, loop_type, variables)
+        
+        # Traiter les conditions
+        content = self._process_conditions(content, variables)
+        
+        logger.info("Traitement des boucles terminé")
+        return content
+    
+    def _process_loop(self, content: str, pattern: str, loop_type: str, variables: dict) -> str:
+        """Traite une boucle spécifique dans le document."""
+        def replace_loop(match):
+            loop_content = match.group(1).strip()
+            logger.info(f"Traitement de la boucle {loop_type}")
+            
+            # Récupérer les données pour cette boucle
+            loop_data = self._get_loop_data(loop_type, variables)
+            
+            if not loop_data:
+                logger.warning(f"Aucune donnée trouvée pour la boucle {loop_type}")
+                return ""
+            
+            logger.info(f"Trouvé {len(loop_data)} éléments pour la boucle {loop_type}")
+            
+            # Générer le contenu pour chaque élément
+            result_parts = []
+            for i, item_data in enumerate(loop_data, 1):
+                item_content = loop_content
+                
+                # Remplacer les variables pour cet élément
+                item_content = self._replace_item_variables(item_content, item_data, i)
+                result_parts.append(item_content)
+            
+            return '\n\n'.join(result_parts)
+        
+        return re.sub(pattern, replace_loop, content, flags=re.DOTALL)
+    
+    def _get_loop_data(self, loop_type: str, variables: dict) -> list:
+        """Récupère les données pour un type de boucle spécifique."""
+        if loop_type == 'ACTIONNAIRES':
+            return self._get_actionnaires_data(variables)
+        elif loop_type == 'GERANTS':
+            return self._get_gerants_data(variables)
+        elif loop_type == 'PRESIDENTS':
+            return self._get_presidents_data(variables)
+        
+        return []
+    
+    def _get_actionnaires_data(self, variables: dict) -> list:
+        """Récupère les données des actionnaires."""
+        # Essayer d'abord avec la liste JSON
+        if 'liste_actionnaires' in variables:
+            try:
+                data = json.loads(variables['liste_actionnaires'])
+                logger.info(f"Données actionnaires récupérées depuis liste_actionnaires: {len(data)} éléments")
+                return data
+            except (json.JSONDecodeError, TypeError) as e:
+                logger.warning(f"Erreur lors du parsing de liste_actionnaires: {e}")
+        
+        # Sinon, extraire des variables individuelles
+        return self._extract_indexed_data(variables, 'associe')
+    
+    def _get_gerants_data(self, variables: dict) -> list:
+        """Récupère les données des gérants."""
+        actionnaires = self._get_actionnaires_data(variables)
+        # Pour l'instant, retourner tous les actionnaires comme gérants potentiels
+        return actionnaires
+    
+    def _get_presidents_data(self, variables: dict) -> list:
+        """Récupère les données des présidents (pour SAS)."""
+        actionnaires = self._get_actionnaires_data(variables)
+        # Pour l'instant, retourner tous les actionnaires comme présidents potentiels
+        return actionnaires
+    
+    def _extract_indexed_data(self, variables: dict, suffix: str) -> list:
+        """Extrait les données indexées des variables."""
+        data_list = []
+        
+        # Trouver le nombre maximum d'index
+        max_index = 0
+        pattern = f'_{suffix}_(\d+)$'
+        
+        for key in variables.keys():
+            match = re.search(pattern, key)
+            if match:
+                max_index = max(max_index, int(match.group(1)))
+        
+        logger.info(f"Index maximum trouvé pour {suffix}: {max_index}")
+        
+        # Si pas d'index trouvé, chercher les variables sans index
+        if max_index == 0:
+            base_fields = [
+                f'nom_{suffix}', f'date_naissance_{suffix}', f'lieu_naissance_{suffix}',
+                f'adresse_{suffix}', f'nationalite_{suffix}', f'apport_numeraire_{suffix}',
+                f'nombre_parts_{suffix}', f'nombre_actions_{suffix}', f'nombre_actions_associe_{suffix}'
+            ]
+            
+            item = {}
+            for field in base_fields:
+                if field in variables:
+                    item[field] = variables[field]
+            
+            if item:
+                data_list.append(item)
+                logger.info("Données extraites sans index")
+        else:
+            # Extraire les données avec index
+            for i in range(1, max_index + 1):
+                item = {}
+                base_fields = [
+                    f'nom_{suffix}', f'date_naissance_{suffix}', f'lieu_naissance_{suffix}',
+                    f'adresse_{suffix}', f'nationalite_{suffix}', f'apport_numeraire_{suffix}',
+                    f'nombre_parts_{suffix}', f'nombre_actions_{suffix}', f'nombre_actions_associe_{suffix}'
+                ]
+                
+                for field in base_fields:
+                    key_with_index = f"{field}_{i}"
+                    if key_with_index in variables:
+                        item[field] = variables[key_with_index]
+                
+                if item:
+                    data_list.append(item)
+                    logger.info(f"Données extraites pour l'index {i}")
+        
+        return data_list
+    
+    def _replace_item_variables(self, content: str, item_data: dict, index: int) -> str:
+        """Remplace les variables pour un élément spécifique."""
+        # Remplacer les variables sans index
+        for key, value in item_data.items():
+            if key != 'id':
+                placeholder = f"{{{{{key}}}}}"
+                content = content.replace(placeholder, str(value))
+        
+        # Remplacer les variables avec index
+        for key, value in item_data.items():
+            if key != 'id':
+                placeholder_with_index = f"{{{{{key}_{index}}}}}"
+                content = content.replace(placeholder_with_index, str(value))
+        
+        return content
+    
+    def _process_conditions(self, content: str, variables: dict) -> str:
+        """Traite les conditions dans le document."""
+        for condition_type, pattern in self.condition_patterns.items():
+            content = self._process_condition(content, pattern, condition_type, variables)
+        
+        return content
+    
+    def _process_condition(self, content: str, pattern: str, condition_type: str, variables: dict) -> str:
+        """Traite une condition spécifique."""
+        def replace_condition(match):
+            condition_content = match.group(1)
+            
+            # Évaluer la condition (pour l'instant, toujours vraie)
+            if True:  # Logique de condition à implémenter selon vos besoins
+                return condition_content
+            else:
+                return ""
+        
+        return re.sub(pattern, replace_condition, content, flags=re.DOTALL)
+
 @router.get("/export/{entreprise_id}")
 async def export_document(
     entreprise_id: str,
@@ -50,9 +234,9 @@ async def export_document(
 ):
     """
     Exporte un document au format PDF ou DOCX avec les variables remplacées par les valeurs du client.
-    Le paramètre document_index permet de spécifier quel document du template exporter.
+    Supporte maintenant les boucles d'actionnaires pour SARL et SAS.
     """
-    # [Keeping the existing validation logic unchanged]
+    # Validation et récupération des données
     entreprises_db = CouchDB(ENTREPRISES_COLLECTION)
     entreprise = await entreprises_db.get_by_id(entreprise_id)
     
@@ -69,7 +253,7 @@ async def export_document(
     if entreprise["statut"] != "validé":
         raise HTTPException(status_code=400, detail="L'entreprise doit être validée pour exporter le document")
     
-    # [Template retrieval logic remains the same]
+    # Récupération du template
     if "template_id" not in entreprise or not entreprise["template_id"]:
         logger.warning(f"Pas de template_id dans l'entreprise {entreprise_id}, recherche par type")
         templates_db = CouchDB(TEMPLATES_COLLECTION)
@@ -119,11 +303,18 @@ async def export_document(
         logger.error(f"Erreur lors de la récupération du contenu du document: {e}")
         raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération du contenu du document: {str(e)}")
     
-    # Remplacer les variables par les valeurs
+    # Traiter les boucles d'actionnaires si c'est un type SARL ou SAS
     valeurs_variables = entreprise["valeurs_variables"]
+    
+    if entreprise["type"] in ['SARL', 'SAS']:
+        logger.info("Traitement des boucles d'actionnaires pour le type d'entreprise: " + entreprise["type"])
+        processor = DocumentLoopProcessor()
+        doc_content = processor.process_document(doc_content, valeurs_variables)
+    
+    # Remplacer les variables restantes par les valeurs
     doc_content_with_values = replace_variables(doc_content, valeurs_variables)
     
-    # Générer le document au format demandé avec le nouveau formatage
+    # Générer le document au format demandé
     if format.lower() == "pdf":
         content, content_type = generate_beautiful_pdf(
             doc_content_with_values, 
@@ -156,22 +347,24 @@ async def export_document(
 def replace_variables(content: str, variables: dict) -> str:
     """
     Remplace les variables dans le contenu par leurs valeurs.
+    Gère maintenant aussi les variables d'actionnaires avec index.
     """
     for key, value in variables.items():
         placeholder = "{{" + key + "}}"
         content = content.replace(placeholder, str(value))
     
+    # Nettoyer les variables non remplacées
     remaining_vars = re.findall(r'{{(.*?)}}', content)
     
     for var in remaining_vars:
-        content = content.replace("{{" + var + "}}", "___________")
+        # Ignorer les marqueurs de boucle et de condition
+        if not var.startswith('#') and not var.startswith('/'):
+            content = content.replace("{{" + var + "}}", "___________")
     
     return content
 
 def create_custom_styles():
-    """
-    Crée des styles personnalisés pour les documents PDF.
-    """
+    """Crée des styles personnalisés pour les documents PDF."""
     styles = getSampleStyleSheet()
     
     # Style pour le titre principal
@@ -223,34 +416,15 @@ def create_custom_styles():
         leading=14
     )
     
-    # Style pour les éléments importants
-    highlight_style = ParagraphStyle(
-        'CustomHighlight',
-        parent=styles['Normal'],
-        fontSize=12,
-        spaceAfter=10,
-        spaceBefore=10,
-        textColor=colors.HexColor('#E74C3C'),
-        alignment=TA_LEFT,
-        fontName='Helvetica-Bold',
-        backColor=colors.HexColor('#FCF3CF'),
-        borderColor=colors.HexColor('#F39C12'),
-        borderWidth=1,
-        borderPadding=8
-    )
-    
     return {
         'title': title_style,
         'subtitle': subtitle_style,
         'section': section_style,
-        'normal': normal_style,
-        'highlight': highlight_style
+        'normal': normal_style
     }
 
 def parse_content_structure(content: str):
-    """
-    Parse le contenu pour identifier les titres, sections et paragraphes.
-    """
+    """Parse le contenu pour identifier les titres, sections et paragraphes."""
     lines = content.split('\n')
     structured_content = []
     
@@ -266,20 +440,15 @@ def parse_content_structure(content: str):
         elif (line[0].isupper() and ':' in line) or any(line.startswith(keyword) for keyword in ['Article', 'Clause', 'Paragraphe']):
             structured_content.append({'type': 'subtitle', 'content': line})
         # Détecter les sections (lignes commençant par des numéros)
-        elif re.match(r'^\d+\.', line) or re.match(r'^[A-Z]\)', line):
+        elif re.match(r'^\d+\.', line) or re.match(r'^[A-Z]\)', line) or line.startswith('ARTICLE'):
             structured_content.append({'type': 'section', 'content': line})
-        # Détecter les éléments importants (lignes avec mots-clés spéciaux)
-        elif any(keyword in line.upper() for keyword in ['IMPORTANT', 'ATTENTION', 'NOTE', 'REMARQUE']):
-            structured_content.append({'type': 'highlight', 'content': line})
         else:
             structured_content.append({'type': 'normal', 'content': line})
     
     return structured_content
 
 def generate_beautiful_pdf(content: str, entreprise_type: str, document_title: str, entreprise: dict) -> tuple:
-    """
-    Génère un document PDF magnifiquement formaté.
-    """
+    """Génère un document PDF magnifiquement formaté avec support des actionnaires multiples."""
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer, 
@@ -296,9 +465,9 @@ def generate_beautiful_pdf(content: str, entreprise_type: str, document_title: s
     
     # En-tête du document avec informations de l'entreprise
     header_data = [
-        ['Entreprise:', entreprise.get('nom', 'N/A')],
+       
         ['Type:', entreprise_type],
-        ['Date:', '___________'],
+        ['Date:', datetime.now().strftime('%d/%m/%Y')],
         ['Document:', document_title]
     ]
     
@@ -352,11 +521,6 @@ def generate_beautiful_pdf(content: str, entreprise_type: str, document_title: s
                 elements.append(Paragraph(content_text, custom_styles['section']))
                 elements.append(Spacer(1, 6))
                 
-            elif content_type == 'highlight':
-                elements.append(Spacer(1, 8))
-                elements.append(Paragraph(content_text, custom_styles['highlight']))
-                elements.append(Spacer(1, 8))
-                
             else:  # normal
                 elements.append(Paragraph(content_text, custom_styles['normal']))
                 
@@ -386,132 +550,31 @@ def generate_beautiful_pdf(content: str, entreprise_type: str, document_title: s
     return pdf_content, "application/pdf"
 
 def generate_beautiful_docx(content: str, entreprise_type: str, document_title: str, entreprise: dict) -> tuple:
-    """
-    Génère un document DOCX magnifiquement formaté.
-    """
+    """Génère un document DOCX magnifiquement formaté avec support des actionnaires multiples."""
     doc = Document()
     
-    # Configurer les styles du document
-    styles = doc.styles
-    
-    # Style pour le titre principal
-    title_style = styles.add_style('CustomTitle', WD_STYLE_TYPE.PARAGRAPH)
-    title_font = title_style.font
-    title_font.name = 'Calibri'
-    title_font.size = Pt(24)
-    title_font.bold = True
-    title_font.color.rgb = RGBColor(44, 62, 80)  # #2C3E50
-    title_style.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    title_style.paragraph_format.space_after = Pt(20)
-    
-    # Style pour les sous-titres
-    subtitle_style = styles.add_style('CustomSubtitle', WD_STYLE_TYPE.PARAGRAPH)
-    subtitle_font = subtitle_style.font
-    subtitle_font.name = 'Calibri'
-    subtitle_font.size = Pt(18)
-    subtitle_font.bold = True
-    subtitle_font.color.rgb = RGBColor(52, 73, 94)  # #34495E
-    subtitle_style.paragraph_format.space_after = Pt(12)
-    subtitle_style.paragraph_format.space_before = Pt(12)
-    
-    # Style pour les sections
-    section_style = styles.add_style('CustomSection', WD_STYLE_TYPE.PARAGRAPH)
-    section_font = section_style.font
-    section_font.name = 'Calibri'
-    section_font.size = Pt(14)
-    section_font.bold = True
-    section_font.color.rgb = RGBColor(41, 128, 185)  # #2980B9
-    section_style.paragraph_format.space_after = Pt(8)
-    section_style.paragraph_format.space_before = Pt(8)
-    
-    # Style pour le texte normal
-    normal_style = styles.add_style('CustomNormal', WD_STYLE_TYPE.PARAGRAPH)
-    normal_font = normal_style.font
-    normal_font.name = 'Calibri'
-    normal_font.size = Pt(11)
-    normal_font.color.rgb = RGBColor(44, 62, 80)  # #2C3E50
-    normal_style.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-    normal_style.paragraph_format.space_after = Pt(6)
-    
-    # Ajouter l'en-tête avec informations de l'entreprise
-    header_table = doc.add_table(rows=4, cols=2)
-    header_table.style = 'Table Grid'
-    
-    header_data = [
-        ('Entreprise:', entreprise.get('nom', 'N/A')),
-        ('Type:', entreprise_type),
-        ('Date:', '___________'),
-        ('Document:', document_title)
-    ]
-    
-    for i, (label, value) in enumerate(header_data):
-        row = header_table.rows[i]
-        row.cells[0].text = label
-        row.cells[1].text = value
-        # Mettre en gras la première colonne
-        row.cells[0].paragraphs[0].runs[0].font.bold = True
-    
-    # Espacement après le tableau
-    doc.add_paragraph()
-    
-    # Ajouter une ligne de séparation (simulée avec des caractères)
-    separator = doc.add_paragraph('─' * 50)
-    separator.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    
     # Titre principal
-    title_para = doc.add_paragraph(document_title)
-    title_para.style = title_style
+    title = doc.add_heading(document_title, 0)
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     
-    # Ligne de séparation sous le titre
-    separator2 = doc.add_paragraph('─' * 30)
-    separator2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    # Informations de l'entreprise
+    info_para = doc.add_paragraph()
+    info_para.add_run(f"Type d'entreprise: ").bold = True
+    info_para.add_run(f"{entreprise_type}\n")
+    info_para.add_run(f"Nom: ").bold = True
+    info_para.add_run(f"{entreprise.get('nom', 'N/A')}\n")
+    info_para.add_run(f"Date de génération: ").bold = True
+    info_para.add_run(f"{datetime.now().strftime('%d/%m/%Y')}")
     
-    # Parser et ajouter le contenu structuré
-    structured_content = parse_content_structure(content)
+    doc.add_paragraph()  # Espacement
     
-    for item in structured_content:
-        content_type = item['type']
-        content_text = item['content']
-        
-        if content_type == 'title':
-            doc.add_paragraph()  # Espacement
-            para = doc.add_paragraph(content_text)
-            para.style = title_style
-            # Ajouter une ligne de séparation
-            sep = doc.add_paragraph('─' * 50)
-            sep.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            
-        elif content_type == 'subtitle':
-            para = doc.add_paragraph(content_text)
-            para.style = subtitle_style
-            
-        elif content_type == 'section':
-            para = doc.add_paragraph(content_text)
-            para.style = section_style
-            
-        elif content_type == 'highlight':
-            para = doc.add_paragraph(content_text)
-            para.style = normal_style
-            # Ajouter une couleur de fond (approximation)
-            run = para.runs[0] if para.runs else para.add_run()
-            run.font.bold = True
-            run.font.color.rgb = RGBColor(231, 76, 60)  # #E74C3C
-            
-        else:  # normal
-            para = doc.add_paragraph(content_text)
-            para.style = normal_style
+    # Contenu principal
+    paragraphs = content.split('\n')
+    for paragraph in paragraphs:
+        if paragraph.strip():
+            doc.add_paragraph(paragraph.strip())
     
-    # Ajouter un pied de page
-    doc.add_paragraph()
-    separator3 = doc.add_paragraph('─' * 50)
-    separator3.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    
-    footer = doc.add_paragraph("Document généré automatiquement")
-    footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    footer.runs[0].font.size = Pt(9)
-    footer.runs[0].font.color.rgb = RGBColor(127, 140, 141)  # #7F8C8D
-    
-    # Enregistrer le document dans un buffer
+    # Enregistrer dans un buffer
     buffer = io.BytesIO()
     doc.save(buffer)
     
@@ -520,15 +583,13 @@ def generate_beautiful_docx(content: str, entreprise_type: str, document_title: 
     
     return docx_content, "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
-# [Keeping all the existing debug and utility endpoints unchanged]
+# Endpoints de debug et utilitaires
 @router.get("/debug/{entreprise_id}")
 async def debug_document_export(
     entreprise_id: str,
     current_user: dict = Depends(get_current_active_user)
 ):
-    """
-    Endpoint de diagnostic pour aider à déboguer les problèmes d'exportation de documents.
-    """
+    """Endpoint de diagnostic pour aider à déboguer les problèmes d'exportation de documents."""
     if current_user["role"] != "expert" and current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Seuls les experts et administrateurs peuvent accéder à cette fonctionnalité")
     
@@ -554,18 +615,18 @@ async def debug_document_export(
             template_info["titre"] = template.get("titre")
             template_info["type_entreprise"] = template.get("type_entreprise")
             template_info["statut"] = template.get("statut")
-            template_info["google_doc_id"] = template.get("google_doc_id")
+            template_info["supports_dynamic_shareholders"] = template.get("supports_dynamic_shareholders", False)
             
-            try:
-                doc_id = extract_doc_id_from_url(template.get("google_doc_id", ""))
-                template_info["google_doc_id_extracted"] = doc_id
-                
-                content_preview = get_google_doc_content(doc_id)
-                template_info["google_docs_access"] = "OK"
-                template_info["content_preview"] = content_preview[:100] + "..." if len(content_preview) > 100 else content_preview
-            except Exception as e:
-                template_info["google_docs_access"] = "ERROR"
-                template_info["google_docs_error"] = str(e)
+            if template.get("documents"):
+                template_info["documents"] = []
+                for i, doc in enumerate(template["documents"]):
+                    doc_info = {
+                        "index": i,
+                        "titre": doc.get("titre"),
+                        "google_doc_id": doc.get("google_doc_id"),
+                        "has_shareholder_loop": doc.get("has_shareholder_loop", False)
+                    }
+                    template_info["documents"].append(doc_info)
     
     templates_db = CouchDB(TEMPLATES_COLLECTION)
     available_templates = await templates_db.query({"type_entreprise": entreprise["type"], "statut": "validé"})
@@ -579,10 +640,11 @@ async def debug_document_export(
         },
         "template_info": template_info,
         "available_templates": [
-            {"id": t["id"], "titre": t["titre"], "google_doc_id": t.get("google_doc_id")} 
+            {"id": t["id"], "titre": t["titre"], "supports_dynamic_shareholders": t.get("supports_dynamic_shareholders", False)} 
             for t in available_templates
         ],
-        "valeurs_variables": entreprise.get("valeurs_variables", {})
+        "valeurs_variables": entreprise.get("valeurs_variables", {}),
+        "actionnaires_data": entreprise.get("valeurs_variables", {}).get("liste_actionnaires", "Non trouvé")
     }
 
 @router.get("/test-google-doc/{doc_id}")
@@ -590,9 +652,7 @@ async def test_google_doc_access(
     doc_id: str,
     current_user: dict = Depends(get_current_active_user)
 ):
-    """
-    Teste l'accès à un document Google Docs et retourne un aperçu du contenu.
-    """
+    """Teste l'accès à un document Google Docs et retourne un aperçu du contenu."""
     if current_user["role"] != "expert" and current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Seuls les experts et administrateurs peuvent accéder à cette fonctionnalité")
     
@@ -600,11 +660,17 @@ async def test_google_doc_access(
         doc_id = extract_doc_id_from_url(doc_id)
         content = get_google_doc_content(doc_id)
         
+        # Détecter les boucles dans le contenu
+        has_loops = bool(re.search(r'{{#LOOP_.*?}}', content))
+        loop_types = re.findall(r'{{#LOOP_(.*?)}}', content)
+        
         return {
             "status": "success",
             "doc_id": doc_id,
             "content_length": len(content),
-            "content_preview": content[:500] + "..." if len(content) > 500 else content
+            "content_preview": content[:500] + "..." if len(content) > 500 else content,
+            "has_loops": has_loops,
+            "loop_types": loop_types
         }
     except Exception as e:
         logger.error(f"Erreur lors du test d'accès au document Google Docs: {e}")
@@ -660,11 +726,9 @@ async def get_available_documents(
                 "index": idx,
                 "titre": doc.get("titre", f"Document {idx+1}"),
                 "description": doc.get("description", ""),
+                "has_shareholder_loop": doc.get("has_shareholder_loop", False)
             }
             for idx, doc in enumerate(template.get("documents", []))
-        ]
+        ],
+        "supports_dynamic_shareholders": template.get("supports_dynamic_shareholders", False)
     }
-
-
-
-    

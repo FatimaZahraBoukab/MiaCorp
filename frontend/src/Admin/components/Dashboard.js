@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { FileText, Users, Eye, Edit, Trash2, Plus, ArrowRight } from "lucide-react"
+import { FileText, Users, Eye, Edit, Trash2, Plus, ArrowRight, AlertCircle, X } from "lucide-react"
 import axios from "axios"
 import "./Dashboard.css"
 
@@ -10,6 +10,8 @@ const Dashboard = ({ stats }) => {
   const [recentData, setRecentData] = useState({
     templates: [],
   })
+  const [showRejectCommentModal, setShowRejectCommentModal] = useState(false)
+const [selectedRejectedTemplate, setSelectedRejectedTemplate] = useState(null)
 
   useEffect(() => {
     // Fonction pour récupérer les données récentes
@@ -94,6 +96,26 @@ const Dashboard = ({ stats }) => {
   const handleViewDocuments = (template) => {
     navigateToTemplates()
   }
+
+  // 4. Ajouter cette fonction pour afficher le commentaire de rejet :
+const handleShowRejectComment = async (template) => {
+  try {
+    const token = localStorage.getItem("token")
+    const response = await axios.get(`http://localhost:8000/templates/${template.id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    
+    setSelectedRejectedTemplate(response.data)
+    setShowRejectCommentModal(true)
+  } catch (error) {
+    console.error("Erreur lors de la récupération des détails du template:", error)
+  }
+}
+
+const closeRejectCommentModal = () => {
+  setShowRejectCommentModal(false)
+  setSelectedRejectedTemplate(null)
+}
 
   return (
     <div className="v0-dashboard">
@@ -220,22 +242,31 @@ const Dashboard = ({ stats }) => {
                             </span>
                           </td>
                           <td>
-                            <div className="v0-action-buttons">
+                          <div className="v0-action-buttons">
+                            {template.statut === "rejeté" && (
                               <button
-                                className="v0-btn v0-btn-outline v0-btn-sm v0-btn-edit"
-                                title="Modifier"
-                                onClick={() => handleEditTemplate(template.id)}
+                                className="v0-btn v0-btn-outline v0-btn-sm v0-btn-info"
+                                onClick={() => handleShowRejectComment(template)}
+                                title="Voir le motif de rejet"
                               >
-                                <Edit size={16} className="v0-edit-icon" />
+                                <AlertCircle size={16} />
                               </button>
-                              <button
-                                className="v0-btn v0-btn-danger v0-btn-sm"
-                                title="Supprimer"
-                                onClick={() => navigateToTemplates()}
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
+                            )}
+                            <button
+                              className="v0-btn v0-btn-outline v0-btn-sm v0-btn-edit"
+                              title="Modifier"
+                              onClick={() => handleEditTemplate(template.id)}
+                            >
+                              <Edit size={16} className="v0-edit-icon" />
+                            </button>
+                            <button
+                              className="v0-btn v0-btn-danger v0-btn-sm"
+                              title="Supprimer"
+                              onClick={() => navigateToTemplates()}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
                           </td>
                         </tr>
                       ))}
@@ -247,6 +278,46 @@ const Dashboard = ({ stats }) => {
           </div>
         </div>
       )}
+
+{showRejectCommentModal && selectedRejectedTemplate && (
+  <div className="v0-modal-overlay">
+    <div className="v0-reject-comment-modal">
+      <div className="v0-modal-header">
+        <h3>Motif de rejet</h3>
+        <button className="v0-close-button" onClick={closeRejectCommentModal}>
+          <X size={20} />
+        </button>
+      </div>
+
+      <div className="v0-modal-content">
+        <div className="v0-reject-comment-container">
+          <div className="v0-reject-icon-container">
+            <AlertCircle size={48} className="v0-reject-icon" />
+          </div>
+          <div className="v0-reject-details">
+            <h4>Template : {selectedRejectedTemplate.titre}</h4>
+            <p className="v0-reject-date">Type d'entreprise : {selectedRejectedTemplate.type_entreprise}</p>
+            <div className="v0-comment-box">
+              <h5>Commentaire de l'expert :</h5>
+              <p>
+                {selectedRejectedTemplate.commentaires && selectedRejectedTemplate.commentaires.trim() !== ""
+                  ? selectedRejectedTemplate.commentaires
+                  : "Aucun commentaire fourni."}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="v0-modal-footer">
+        <button className="v0-btn v0-btn-outline" onClick={closeRejectCommentModal}>
+          Fermer
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   )
 }

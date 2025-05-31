@@ -56,12 +56,14 @@ class ExpertJuridiqueCreate(UserCreate, ExpertJuridiqueBase):
 class ExpertJuridique(User, ExpertJuridiqueBase):
     pass
 
+# Type d'entreprise - SEULEMENT 4 TYPES
 class TypeEntreprise(str, Enum):
-    SAS = "SAS"
     SARL = "SARL"
+    SAS = "SAS"
     SASU = "SASU"
     EURL = "EURL"
 
+# Entreprise Models
 class Entreprise(BaseModel):
     id: str
     type: TypeEntreprise
@@ -70,6 +72,12 @@ class Entreprise(BaseModel):
     statut: str = "en_attente"
     valeurs_variables: Dict[str, str]
 
+class EntrepriseCreate(BaseModel):
+    type: TypeEntreprise
+    template_id: str
+    valeurs_variables: Dict[str, str]
+
+# Template Models
 class TemplateVariable(BaseModel):
     id: str
     nom: str
@@ -95,6 +103,10 @@ class DocumentTemplate(BaseModel):
     est_actif: bool = True
     statut: str = "en_attente"
     date_creation: datetime
+    supports_dynamic_shareholders: Optional[bool] = False
+    commentaires: Optional[str] = None
+    date_validation: Optional[datetime] = None
+    date_rejet: Optional[datetime] = None
 
 class DocumentTemplateCreate(BaseModel):
     titre: str
@@ -102,6 +114,7 @@ class DocumentTemplateCreate(BaseModel):
     type_entreprise: TypeEntreprise
     documents: List[GoogleDocument]
 
+# Document Models
 class Document(BaseModel):
     id: str
     template_id: str
@@ -116,11 +129,6 @@ class Document(BaseModel):
     date_modification: Optional[datetime] = None
     date_validation: Optional[datetime] = None
 
-class EntrepriseCreate(BaseModel):
-    type: TypeEntreprise
-    template_id: str
-    valeurs_variables: Dict[str, str]
-
 # Message de contact
 class ContactMessageCreate(BaseModel):
     firstName: str
@@ -133,7 +141,7 @@ class ContactMessageCreate(BaseModel):
 class ContactMessage(ContactMessageCreate):
     id: str
 
-# NOUVEAUX MODÈLES POUR LES ATTACHEMENTS
+# MODÈLES POUR LES ATTACHEMENTS
 class MessageAttachment(BaseModel):
     id: str
     nom_fichier: str
@@ -148,7 +156,7 @@ class MessageAttachmentCreate(BaseModel):
     taille_fichier: int
     contenu_base64: str  # contenu du fichier en base64
 
-# MODÈLES DE MESSAGES MODIFIÉS
+# MODÈLES DE MESSAGES
 class MessageCreate(BaseModel):
     contenu: str
     conversation_id: str
@@ -163,8 +171,9 @@ class Message(BaseModel):
     contenu: str
     date_envoi: datetime
     lu: bool = False
-    attachments: List[MessageAttachment] = []  # NOUVEAU CHAMP
+    attachments: List[MessageAttachment] = []
 
+# MODÈLES DE CONVERSATIONS
 class ConversationCreate(BaseModel):
     entreprise_id: str
     sujet: Optional[str] = "Discussion sur la demande"
@@ -193,3 +202,71 @@ class ConversationSummary(BaseModel):
     dernier_message: Optional[str] = None
     non_lus: int = 0
     statut: str
+
+# MODÈLES ADDITIONNELS POUR LA CRÉATION D'ENTREPRISE
+class EntrepriseCreateForm(BaseModel):
+    nom: str
+    type: TypeEntreprise
+    siret: Optional[str] = ""
+    adresse: str
+    capital: float
+    description: str
+    template_id: Optional[str] = None
+    valeurs_variables: Dict[str, Any] = {}
+
+class EntrepriseResponse(BaseModel):
+    id: str
+    nom: str
+    type: str
+    siret: Optional[str] = ""
+    adresse: str
+    capital: float
+    description: str
+    statut: str = "en_attente"
+    client_id: str
+    template_id: Optional[str] = None
+    valeurs_variables: Dict[str, Any] = {}
+    piece_identite_url: Optional[str] = None
+    date_creation: str
+    date_modification: Optional[str] = None
+
+# MODÈLES POUR LES VARIABLES DE TEMPLATE
+class DocumentInfo(BaseModel):
+    titre: str
+    description: Optional[str] = ""
+    google_doc_id: str
+    google_doc_url: Optional[str] = ""
+    variables: Optional[List[TemplateVariable]] = []
+
+class DocumentTemplateResponse(BaseModel):
+    id: str
+    titre: str
+    description: Optional[str] = ""
+    type_entreprise: str
+    documents: List[Dict[str, Any]]
+    variables: List[Dict[str, Any]] = []
+    est_actif: bool = True
+    statut: str = "en_attente"
+    date_creation: str
+    supports_dynamic_shareholders: bool = False
+
+# MODÈLES POUR L'AUTHENTIFICATION ÉTENDUE
+class UserCreateExtended(BaseModel):
+    email: str
+    password: str
+    nom: str
+    prenom: str
+    role: str = "client"
+    telephone: Optional[str] = None
+    acceptEmails: Optional[bool] = False
+
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    nom: str
+    prenom: str
+    role: str
+    est_actif: bool = True
+    date_creation: str
+    telephone: Optional[str] = None
+    acceptEmails: Optional[bool] = False

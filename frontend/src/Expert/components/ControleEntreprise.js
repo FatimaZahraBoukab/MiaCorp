@@ -302,7 +302,7 @@ const ChatModal = ({ isOpen, onClose, entrepriseId, entrepriseType, currentUser 
   return (
     <div className="chat-modal-overlay">
       <div className="chat-modal">
-        <div className="chat-header">
+        <div className="chat-header56">
           <div className="chat-header-info">
             <MessageCircle size={20} />
             <div>

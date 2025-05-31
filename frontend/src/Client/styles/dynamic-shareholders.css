@@ -1,0 +1,213 @@
+/* Styles pour le formulaire dynamique des actionnaires */
+.V4-dynamic-shareholders-container {
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 25px;
+  margin: 20px 0;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e9ecef;
+}
+
+.V4-shareholders-header {
+  margin-bottom: 25px;
+}
+
+.V4-shareholders-header h3 {
+  color: #1e3a6e;
+  font-size: 1.5rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.V4-shareholders-description {
+  color: #6c757d;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.V4-shareholder-card {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid #e9ecef;
+  position: relative;
+}
+
+.V4-shareholder-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.V4-shareholder-header h4 {
+  color: #1e3a6e;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.V4-delete-shareholder-btn {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+}
+
+.V4-delete-shareholder-btn:hover {
+  background-color: #c82333;
+}
+
+.V4-shareholder-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 15px;
+}
+
+.V4-form-group {
+  margin-bottom: 15px;
+}
+
+.V4-form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #495057;
+  font-size: 0.9rem;
+}
+
+.V4-required-indicator {
+  color: #dc3545;
+  margin-left: 3px;
+}
+
+.V4-form-control {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+  background-color: #fff;
+}
+
+.V4-form-control:focus {
+  outline: none;
+  border-color: #1e3a6e;
+  box-shadow: 0 0 0 2px rgba(30, 58, 110, 0.1);
+}
+
+.V4-add-shareholder-btn {
+  background-color: #1e3a6e;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 15px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.V4-add-shareholder-btn:hover {
+  background-color: #152c54;
+}
+
+.V4-shareholders-summary {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 20px;
+  border: 1px solid #e9ecef;
+}
+
+.V4-shareholders-summary h4 {
+  color: #1e3a6e;
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 15px;
+}
+
+.V4-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 15px;
+}
+
+.V4-summary-item {
+  background: #ffffff;
+  padding: 15px;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+  text-align: center;
+}
+
+.V4-summary-item span {
+  display: block;
+  color: #6c757d;
+  font-size: 0.85rem;
+  margin-bottom: 5px;
+}
+
+.V4-summary-item strong {
+  color: #1e3a6e;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .V4-shareholder-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .V4-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Style pour les actionnaires numérotés (comme dans l'image) */
+.V4-shareholder-card:nth-child(2) {
+  border-left: 3px solid #1e3a6e;
+}
+
+.V4-shareholder-card:nth-child(3) {
+  border-left: 3px solid #e05a7a;
+}
+
+.V4-shareholder-card:nth-child(4) {
+  border-left: 3px solid #28a745;
+}
+
+.V4-shareholder-card:nth-child(5) {
+  border-left: 3px solid #ffc107;
+}
+
+/* Animation pour l'ajout d'un nouvel actionnaire */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.V4-shareholder-card {
+  animation: fadeIn 0.3s ease-out;
+}

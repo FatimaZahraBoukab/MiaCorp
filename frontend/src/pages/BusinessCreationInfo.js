@@ -116,6 +116,23 @@ const BusinessCreationInfo = () => {
                   </button>
                 </div>
               </div>
+
+               {/* Nouvelle carte pour EURL */}
+          <div className="type-card">
+            <div className="type-image">
+              <img src="/images/imggggg.png" alt="EURL" className="type-img" />
+            </div>
+            <h3 className="type-heading">EURL</h3>
+            <p className="type-text">
+              Entreprise Unipersonnelle à Responsabilité Limitée, variante de la SARL avec un seul associé. Idéale pour
+              l'entrepreneur individuel souhaitant limiter sa responsabilité.
+            </p>
+            <div className="type-button-container">
+              <button className="type-button" onClick={() => handleLearnMore("eurl")}>
+                En savoir plus sur l'EURL
+              </button>
+            </div>
+          </div>
             </div>
           </div>
         </section>

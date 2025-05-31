@@ -3,28 +3,28 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import axios from "axios"
-import "../styles/creation-entreprise.css"
+import DynamicShareholderForm from "./DynamicShareholderForm"
 import { CheckCircle, Upload, ChevronRight, ChevronLeft, AlertTriangle, Check, Building } from "lucide-react"
+import "../styles/creation-entreprise.css"
 
-const CreationEntreprise = () => {
+const CreationEntrepriseUpdated = () => {
   const navigate = useNavigate()
-  const [step, setStep] = useState(1) // 1: choix type, 2: formulaires par document, 3: confirmation, 4: upload
-  const [currentDocIndex, setCurrentDocIndex] = useState(0) // Index du document actuel
+  const [step, setStep] = useState(1)
+  const [currentDocIndex, setCurrentDocIndex] = useState(0)
   const [entrepriseTypes, setEntrepriseTypes] = useState([])
   const [selectedType, setSelectedType] = useState("")
-  const [documents, setDocuments] = useState([]) // Documents du template
-  const [formValues, setFormValues] = useState({}) // Toutes les valeurs combinées
+  const [documents, setDocuments] = useState([])
+  const [formValues, setFormValues] = useState({})
   const [file, setFile] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [templateInfo, setTemplateInfo] = useState(null)
-  const [existingEntreprises, setExistingEntreprises] = useState([])
+  const [showShareholderForm, setShowShareholderForm] = useState(false)
 
-  // Référence pour le formulaire
   const formRef = useRef(null)
 
-  // Récupérer les types d'entreprise disponibles et les entreprises existantes
+  // Récupérer les types d'entreprise disponibles (SEULEMENT SARL et SAS)
   useEffect(() => {
     const fetchTypes = async () => {
       try {
@@ -32,38 +32,13 @@ const CreationEntreprise = () => {
         const response = await axios.get("http://localhost:8000/templates/types", {
           headers: { Authorization: `Bearer ${token}` },
         })
+        // Supprimer le filtrage - garder tous les types
         setEntrepriseTypes(response.data)
       } catch (err) {
         setError("Erreur lors du chargement des types d'entreprise")
       }
     }
-
-    // Vérifier si l'utilisateur a déjà des entreprises (mais ne pas bloquer la création)
-    const checkExistingEntreprises = async () => {
-      try {
-        const token = localStorage.getItem("token")
-        const response = await axios.get("http://localhost:8000/entreprises/me", {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-
-        // Convertir en tableau si c'est un objet unique
-        const entreprises = Array.isArray(response.data) ? response.data : [response.data]
-
-        // Stocker les entreprises existantes
-        if (entreprises.length > 0) {
-          console.log("Entreprises existantes:", entreprises)
-          setExistingEntreprises(entreprises)
-        }
-
-        // Continuer avec le chargement des types d'entreprise
-        fetchTypes()
-      } catch (err) {
-        // Pas d'entreprise existante ou erreur, continuer normalement
-        fetchTypes()
-      }
-    }
-
-    checkExistingEntreprises()
+    fetchTypes()
   }, [])
 
   // Récupérer les documents et leurs variables quand un type est sélectionné
@@ -72,25 +47,15 @@ const CreationEntreprise = () => {
       const fetchTemplateData = async () => {
         try {
           const token = localStorage.getItem("token")
-          // Récupérer les informations du template
           const templateResponse = await axios.get(`http://localhost:8000/templates/by-type/${selectedType}`, {
             headers: { Authorization: `Bearer ${token}` },
           })
 
           setTemplateInfo(templateResponse.data)
-          console.log("Template data:", templateResponse.data)
-
-          // Récupérer les documents et leurs variables
           const documents = templateResponse.data.documents || []
-
-          // Log pour déboguer
-          documents.forEach((doc) => {
-            console.log(`Document ${doc.titre} variables:`, doc.variables)
-          })
-
           setDocuments(documents)
 
-          // Initialiser les valeurs du formulaire pour tous les documents
+          // Initialiser les valeurs du formulaire
           const initialValues = {}
           documents.forEach((doc) => {
             if (doc.variables) {
@@ -101,8 +66,8 @@ const CreationEntreprise = () => {
           })
 
           setFormValues(initialValues)
-          setCurrentDocIndex(0) // Commencer par le premier document
-          setStep(2) // Passer à l'étape du formulaire
+          setCurrentDocIndex(0)
+          setStep(2)
         } catch (err) {
           setError("Erreur lors du chargement des informations du template")
           console.error(err)
@@ -112,44 +77,6 @@ const CreationEntreprise = () => {
       fetchTemplateData()
     }
   }, [selectedType])
-
-  // Effet pour modifier le DOM après le rendu
-  useEffect(() => {
-    if (step === 2 && formRef.current) {
-      // Supprimer tous les textes "Texte libre"
-      const paragraphs = formRef.current.querySelectorAll("p")
-      paragraphs.forEach((p) => {
-        if (p.textContent.trim() === "Texte libre") {
-          p.style.display = "none"
-        }
-      })
-
-      // Modifier les types d'input en fonction du nom du champ
-      const inputs = formRef.current.querySelectorAll("input")
-      inputs.forEach((input) => {
-        const name = (input.name || "").toLowerCase()
-
-        // Changer le type d'input en fonction du nom
-        if (name.includes("date")) {
-          input.type = "date"
-        } else if (
-          name.includes("montant") ||
-          name.includes("capital") ||
-          name.includes("nombre") ||
-          name.includes("num")
-        ) {
-          input.type = "number"
-        } else if (name.includes("email")) {
-          input.type = "email"
-        } else if (name.includes("tel") || name.includes("telephone")) {
-          input.type = "tel"
-        }
-
-        // Ajouter des classes CSS pour le style
-        input.classList.add("form-control8")
-      })
-    }
-  }, [step, currentDocIndex, documents])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -163,34 +90,95 @@ const CreationEntreprise = () => {
     setFile(e.target.files[0])
   }
 
-  // Navigation entre les formulaires des documents
-  const handleNextDocument = () => {
-    // Valider les champs obligatoires du document actuel
-    const currentDoc = documents[currentDocIndex]
-    const requiredFields = currentDoc.variables.filter((v) => v.obligatoire).map((v) => v.nom)
+  const hasShareholderVariables = () => {
+    const currentDoc = getCurrentDocument()
+    if (!currentDoc.variables) return false
 
+    return currentDoc.variables.some(
+      (variable) =>
+        (variable.nom.includes("nom_associe") ||
+          variable.nom.includes("date_naissance_associe") ||
+          variable.nom.includes("apport_numeraire_associe") ||
+          variable.nom.includes("nombre_actions_associe") ||
+          variable.nom.includes("nombre_parts_associe")) &&
+        !variable.nom.includes("#LOOP_") &&
+        !variable.nom.includes("/LOOP_"),
+    )
+  }
+
+  const handleNextDocument = () => {
+    const currentDoc = documents[currentDocIndex]
+
+    // CORRECTION: Validation des champs obligatoires (exclure les marqueurs de boucles)
+    const visibleVariables = currentDoc.variables.filter((variable) => {
+      // Exclure les marqueurs de boucles et conditions
+      if (
+        variable.nom.includes("#LOOP_") ||
+        variable.nom.includes("/LOOP_") ||
+        variable.nom.includes("#IF_") ||
+        variable.nom.includes("/IF_")
+      )
+        return false
+
+      // Exclure les variables générées automatiquement
+      if (
+        [
+          "nombre_actionnaires",
+          "liste_actionnaires",
+          "total_apports_numeraire",
+          "nombre_total_parts",
+          "nombre_total_actions",
+        ].includes(variable.nom)
+      )
+        return false
+
+      // Exclure les variables d'associés individuelles si on a le formulaire dynamique
+      if (
+        (selectedType === "SARL" || selectedType === "SAS") &&
+        hasShareholderVariables() &&
+        (variable.nom.includes("_associe") || variable.nom.includes("actionnaire"))
+      )
+        return false
+
+      return true
+    })
+
+    const requiredFields = visibleVariables.filter((v) => v.obligatoire).map((v) => v.nom)
     const missingFields = requiredFields.filter((field) => !formValues[field])
+
     if (missingFields.length > 0) {
       setError(`Veuillez remplir tous les champs obligatoires: ${missingFields.join(", ")}`)
       return
     }
 
-    if (currentDocIndex < documents.length - 1) {
-      setCurrentDocIndex(currentDocIndex + 1)
-    } else {
-      // Si c'est le dernier document, passer à l'étape suivante
-      setStep(3) // Confirmation
+    // Si c'est un document avec des actionnaires et qu'on n'a pas encore montré le formulaire
+    // Modifier cette condition pour inclure tous les types qui supportent les actionnaires multiples
+    if (hasShareholderVariables() && !showShareholderForm && (selectedType === "SARL" || selectedType === "SAS")) {
+      setShowShareholderForm(true)
+      return
     }
 
-    setError("") // Effacer les erreurs précédentes
+    // Passer au document suivant ou à la confirmation
+    if (currentDocIndex < documents.length - 1) {
+      setCurrentDocIndex(currentDocIndex + 1)
+      setShowShareholderForm(false)
+    } else {
+      setStep(3)
+    }
+
+    setError("")
   }
 
   const handlePreviousDocument = () => {
+    if (showShareholderForm) {
+      setShowShareholderForm(false)
+      return
+    }
+
     if (currentDocIndex > 0) {
       setCurrentDocIndex(currentDocIndex - 1)
     } else {
-      // Si c'est le premier document, revenir à l'étape précédente
-      setStep(1) // Sélection du type
+      setStep(1)
     }
   }
 
@@ -201,33 +189,17 @@ const CreationEntreprise = () => {
 
     try {
       const token = localStorage.getItem("token")
-
-      // Créer l'objet FormData
       const formData = new FormData()
 
-      // Ajouter le fichier avec le nom correct attendu par l'API
       formData.append("piece_identite", file)
-
-      // Ajouter les données d'entreprise individuellement comme champs formData
-      formData.append("nom", formValues.nom_entreprise || "Nouvelle Entreprise")
+      formData.append("nom", formValues.denomination_sociale || "Nouvelle Entreprise")
       formData.append("type", selectedType)
       formData.append("siret", formValues.siret || "")
-      formData.append("adresse", formValues.adresse || "")
-      formData.append("capital", Number.parseFloat(formValues.capital || 0))
-      formData.append("description", formValues.description || "")
-      formData.append("template_id", selectedType)
+      formData.append("adresse", formValues.adresse_siege_social || "")
+      formData.append("capital", Number.parseFloat(formValues.capital_social || 0))
+      formData.append("description", formValues.objet_social || "")
+      formData.append("template_id", templateInfo.id)
       formData.append("valeurs_variables", JSON.stringify(formValues))
-
-      console.log("Envoi des données:", {
-        nom: formValues.nom_entreprise || "Nouvelle Entreprise",
-        type: selectedType,
-        siret: formValues.siret || "",
-        adresse: formValues.adresse || "",
-        capital: Number.parseFloat(formValues.capital || 0),
-        description: formValues.description || "",
-        template_id: selectedType,
-        valeurs_variables: formValues,
-      })
 
       const response = await axios.post("http://localhost:8000/entreprises/", formData, {
         headers: {
@@ -236,81 +208,18 @@ const CreationEntreprise = () => {
         },
       })
 
-      setSuccess("Votre entreprise a été créée avec succès ! Vérification du statut...")
-
-      // Vérifier périodiquement si l'entreprise est bien enregistrée
-      const createdEntrepriseId = response.data.id
-      let attempts = 0
-      const maxAttempts = 5
-
-      const verifyCreation = async () => {
-        if (attempts >= maxAttempts) {
-          setSuccess(
-            "Votre entreprise a été créée avec succès ! Vous pouvez suivre son statut dans la section 'Mes démarches'.",
-          )
-          setTimeout(() => {
-            navigate("/client/demarches")
-          }, 2000)
-          return
-        }
-
-        attempts++
-        const entrepriseStatus = await checkCreationStatus(createdEntrepriseId)
-
-        if (entrepriseStatus) {
-          setSuccess("Votre entreprise a été créée avec succès ! Redirection vers vos démarches...")
-          setTimeout(() => {
-            navigate("/client/demarches")
-          }, 1000)
-        } else {
-          // Réessayer après un délai
-          setTimeout(verifyCreation, 1000)
-        }
-      }
-
-      // Démarrer la vérification
-      verifyCreation()
+      setSuccess("Votre entreprise a été créée avec succès !")
+      setTimeout(() => {
+        navigate("/client/demarches")
+      }, 2000)
     } catch (err) {
       console.error("Erreur lors de la soumission:", err)
-
-      // Gérer l'erreur de façon plus détaillée
-      if (err.response?.data) {
-        const errorData = err.response.data
-        if (Array.isArray(errorData)) {
-          // Si c'est un tableau d'erreurs, prendre le premier message
-          setError(errorData[0]?.msg || JSON.stringify(errorData))
-        } else if (typeof errorData === "object") {
-          // Si c'est un objet d'erreur
-          setError(errorData.detail || JSON.stringify(errorData))
-        } else {
-          // Fallback pour tout autre format
-          setError(String(errorData))
-        }
-      } else {
-        setError("Erreur lors de la création de l'entreprise")
-      }
+      setError("Erreur lors de la création de l'entreprise")
     } finally {
       setLoading(false)
     }
   }
 
-  // Fonction pour vérifier si l'entreprise a été créée avec succès
-  const checkCreationStatus = async (entrepriseId) => {
-    try {
-      const token = localStorage.getItem("token")
-      const response = await axios.get(`http://localhost:8000/entreprises/${entrepriseId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-
-      console.log("Statut de création vérifié:", response.data)
-      return response.data
-    } catch (err) {
-      console.error("Erreur lors de la vérification du statut:", err)
-      return null
-    }
-  }
-
-  // Obtenir le document actuel et ses variables
   const getCurrentDocument = () => {
     if (!documents || documents.length === 0 || currentDocIndex >= documents.length) {
       return { titre: "Document inconnu", variables: [] }
@@ -318,9 +227,7 @@ const CreationEntreprise = () => {
     return documents[currentDocIndex]
   }
 
-  // Fonction pour déterminer le type d'input en fonction du nom et du type de la variable
   const getInputType = (variable) => {
-    // Vérifier d'abord le type explicite
     if (variable.type) {
       switch (variable.type.toLowerCase()) {
         case "date":
@@ -342,22 +249,65 @@ const CreationEntreprise = () => {
       }
     }
 
-    // Sinon, détecter en fonction du nom
     const nom = variable.nom.toLowerCase()
-    if (nom.includes("date")) {
-      return "date"
-    } else if (nom.includes("montant") || nom.includes("capital") || nom.includes("nombre") || nom.includes("num")) {
-      return "number"
-    } else if (nom.includes("email")) {
-      return "email"
-    } else if (nom.includes("tel") || nom.includes("telephone")) {
-      return "tel"
-    } else if (nom.includes("est_") || nom.includes("bool")) {
-      return "checkbox"
-    }
-
-    return "text" // Par défaut
+    if (nom.includes("date")) return "date"
+    if (nom.includes("montant") || nom.includes("capital") || nom.includes("nombre")) return "number"
+    if (nom.includes("email")) return "email"
+    if (nom.includes("tel")) return "tel"
+    return "text"
   }
+
+  const syncShareholderVariables = () => {
+    const currentDoc = getCurrentDocument()
+    if (!currentDoc.variables) return
+
+    // Récupérer les variables d'associés existantes du formulaire
+    const associeVariables = currentDoc.variables.filter(
+      (variable) =>
+        variable.nom.includes("_associe") &&
+        !variable.nom.includes("#LOOP_") &&
+        !variable.nom.includes("/LOOP_") &&
+        ![
+          "nombre_actionnaires",
+          "liste_actionnaires",
+          "total_apports_numeraire",
+          "nombre_total_parts",
+          "nombre_total_actions",
+        ].includes(variable.nom),
+    )
+
+    if (associeVariables.length > 0 && !formValues.liste_actionnaires) {
+      // CORRECTION: Créer un actionnaire par défaut avec toutes les variables incluant nombre_actions_associe
+      const defaultShareholder = {
+        id: 1,
+        nom_associe: formValues.nom_associe || "",
+        date_naissance_associe: formValues.date_naissance_associe || "",
+        lieu_naissance_associe: formValues.lieu_naissance_associe || "",
+        adresse_associe: formValues.adresse_associe || "",
+        nationalite_associe: formValues.nationalite_associe || "",
+        apport_numeraire_associe: formValues.apport_numeraire_associe || "",
+        nombre_parts_associe: formValues.nombre_parts_associe || "",
+        nombre_actions_associe: formValues.nombre_actions_associe || "", // AJOUT: Variable manquante
+      }
+
+      // Mettre à jour formValues avec la liste d'actionnaires
+      const updatedFormValues = {
+        ...formValues,
+        liste_actionnaires: JSON.stringify([defaultShareholder]),
+        nombre_actionnaires: "1",
+      }
+
+      setFormValues(updatedFormValues)
+    }
+  }
+
+  // Appeler cette fonction quand on affiche le formulaire d'actionnaires
+  useEffect(() => {
+    // CORRECTION: Seulement pour les types multi-actionnaires
+    if (showShareholderForm && (selectedType === "SARL" || selectedType === "SAS")) {
+      syncShareholderVariables()
+    }
+  }, [showShareholderForm, selectedType])
 
   return (
     <div className="creation-entreprise-container8">
@@ -388,7 +338,7 @@ const CreationEntreprise = () => {
       {error && (
         <div className="error-message8">
           <AlertTriangle size={24} />
-          {typeof error === "object" ? JSON.stringify(error) : error}
+          {error}
         </div>
       )}
       {success && (
@@ -414,8 +364,10 @@ const CreationEntreprise = () => {
                   <Building size={20} className="icon-inline" /> {type}
                 </h3>
                 <p>
-                  Description du type {type}. Sélectionnez ce type d'entreprise pour créer une structure adaptée à vos
-                  besoins.
+                  {type === "SARL" && "Société à Responsabilité Limitée - Idéale pour les PME avec des associés"}
+                  {type === "SAS" && "Société par Actions Simplifiée - Flexible pour les projets innovants"}
+                  {type === "SASU" && "Société par Actions Simplifiée Unipersonnelle - Pour un seul associé"}
+                  {type === "EURL" && "Entreprise Unipersonnelle à Responsabilité Limitée - Pour un entrepreneur seul"}
                 </p>
                 <div className="type-card-footer8">
                   <span className="type-select-text8">{selectedType === type ? "Sélectionné" : "Sélectionner"}</span>
@@ -428,94 +380,155 @@ const CreationEntreprise = () => {
 
       {step === 2 && (
         <div className="form-step8">
-          <h2>
-            Document {currentDocIndex + 1}/{documents.length}: {getCurrentDocument().titre}
-          </h2>
-          <div className="progress-bar8">
-            <div className="progress8" style={{ width: `${((currentDocIndex + 1) / documents.length) * 100}%` }}></div>
-          </div>
-
-          <form ref={formRef}>
-            {getCurrentDocument().variables &&
-              getCurrentDocument().variables.map((variable) => {
-                const inputType = getInputType(variable)
-
-                return (
-                  <div key={variable.nom} className="form-group8">
-                    <label>
-                      {variable.nom}
-                      {variable.obligatoire && <span className="required8">*</span>}
-                    </label>
-
-                    {inputType === "checkbox" ? (
-                      <div className="checkbox-container8">
-                        <input
-                          type="checkbox"
-                          id={`checkbox-${variable.nom}`}
-                          name={variable.nom}
-                          checked={formValues[variable.nom] === "true"}
-                          onChange={(e) =>
-                            handleInputChange({
-                              target: {
-                                name: variable.nom,
-                                value: e.target.checked ? "true" : "false",
-                              },
-                            })
-                          }
-                          className="form-checkbox8"
-                        />
-                        <label htmlFor={`checkbox-${variable.nom}`} className="checkbox-label8">
-                          {variable.description || ""}
-                        </label>
-                      </div>
-                    ) : inputType === "select" ? (
-                      <select
-                        name={variable.nom}
-                        value={formValues[variable.nom] || ""}
-                        onChange={handleInputChange}
-                        required={variable.obligatoire}
-                        className="form-control8"
-                      >
-                        <option value="">Sélectionnez une option</option>
-                        {(variable.valeur_defaut && typeof variable.valeur_defaut === "string"
-                          ? JSON.parse(variable.valeur_defaut || "[]")
-                          : []
-                        ).map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type={inputType}
-                        name={variable.nom}
-                        value={formValues[variable.nom] || ""}
-                        onChange={handleInputChange}
-                        required={variable.obligatoire}
-                        className="form-control8"
-                      />
-                    )}
-
-                    {/* Remplacer "Texte libre" par la description si elle existe */}
-                    {variable.description && inputType !== "checkbox" && (
-                      <p className="variable-description8">{variable.description}</p>
-                    )}
-                  </div>
-                )
-              })}
-
-            <div className="form-actions8">
-              <button type="button" className="secondary-button8" onClick={handlePreviousDocument}>
-                <ChevronLeft size={18} />
-                {currentDocIndex === 0 ? "Retour à la sélection" : "Document précédent"}
-              </button>
-              <button type="button" className="primary-button8" onClick={handleNextDocument}>
-                {currentDocIndex < documents.length - 1 ? "Document suivant" : "Continuer vers confirmation"}
-                <ChevronRight size={18} />
-              </button>
+          {showShareholderForm ? (
+            <div>
+              <h2>Actionnaires / Associés</h2>
+              <DynamicShareholderForm
+                formValues={formValues}
+                setFormValues={setFormValues}
+                entrepriseType={selectedType}
+              />
+              <div className="form-actions8">
+                <button type="button" className="secondary-button8" onClick={handlePreviousDocument}>
+                  <ChevronLeft size={18} />
+                  Retour aux informations générales
+                </button>
+                <button type="button" className="primary-button8" onClick={handleNextDocument}>
+                  {currentDocIndex < documents.length - 1 ? "Document suivant" : "Continuer vers confirmation"}
+                  <ChevronRight size={18} />
+                </button>
+              </div>
             </div>
-          </form>
+          ) : (
+            <div>
+              <h2>
+                Document {currentDocIndex + 1}/{documents.length}: {getCurrentDocument().titre}
+              </h2>
+              <div className="progress-bar8">
+                <div
+                  className="progress8"
+                  style={{ width: `${((currentDocIndex + 1) / documents.length) * 100}%` }}
+                ></div>
+              </div>
+
+              <form ref={formRef}>
+                {getCurrentDocument().variables &&
+                  getCurrentDocument()
+                    .variables.filter((variable) => {
+                      // CORRECTION: Filtrer les marqueurs de boucle et conditions plus strictement
+                      if (
+                        variable.nom.includes("#LOOP_") ||
+                        variable.nom.includes("/LOOP_") ||
+                        variable.nom.includes("#IF_") ||
+                        variable.nom.includes("/IF_")
+                      )
+                        return false
+
+                      if (variable.nom.includes("{{#") || variable.nom.includes("{{/")) return false
+
+                      // Filtrer les variables générées automatiquement
+                      if (
+                        [
+                          "nombre_actionnaires",
+                          "liste_actionnaires",
+                          "total_apports_numeraire",
+                          "nombre_total_parts",
+                          "nombre_total_actions",
+                        ].includes(variable.nom)
+                      )
+                        return false
+
+                      // Filtrer les variables d'associés individuelles si on a le formulaire dynamique
+                      if ((selectedType === "SARL" || selectedType === "SAS") && hasShareholderVariables()) {
+                        if (variable.nom.includes("_associe") || variable.nom.includes("actionnaire")) return false
+                      }
+
+                      return true
+                    })
+                    .map((variable) => {
+                      const inputType = getInputType(variable)
+
+                      return (
+                        <div key={variable.nom} className="form-group8">
+                          <label>
+                            {variable.nom}
+                            {variable.obligatoire && <span className="required8">*</span>}
+                          </label>
+
+                          {inputType === "checkbox" ? (
+                            <div className="checkbox-container">
+                              <input
+                                type="checkbox"
+                                id={`checkbox-${variable.nom}`}
+                                name={variable.nom}
+                                checked={formValues[variable.nom] === "true"}
+                                onChange={(e) =>
+                                  handleInputChange({
+                                    target: {
+                                      name: variable.nom,
+                                      value: e.target.checked ? "true" : "false",
+                                    },
+                                  })
+                                }
+                                className="form-checkbox"
+                              />
+                              <label htmlFor={`checkbox-${variable.nom}`} className="checkbox-label">
+                                {variable.description || ""}
+                              </label>
+                            </div>
+                          ) : inputType === "select" ? (
+                            <select
+                              name={variable.nom}
+                              value={formValues[variable.nom] || ""}
+                              onChange={handleInputChange}
+                              required={variable.obligatoire}
+                              className="form-control"
+                            >
+                              <option value="">Sélectionnez une option</option>
+                              {(variable.valeur_defaut && typeof variable.valeur_defaut === "string"
+                                ? JSON.parse(variable.valeur_defaut || "[]")
+                                : []
+                              ).map((opt) => (
+                                <option key={opt} value={opt}>
+                                  {opt}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type={inputType}
+                              name={variable.nom}
+                              value={formValues[variable.nom] || ""}
+                              onChange={handleInputChange}
+                              required={variable.obligatoire}
+                              className="form-control"
+                            />
+                          )}
+
+                          {variable.description && inputType !== "checkbox" && (
+                            <p className="variable-description8">{variable.description}</p>
+                          )}
+                        </div>
+                      )
+                    })}
+
+                <div className="form-actions8">
+                  <button type="button" className="secondary-button8" onClick={handlePreviousDocument}>
+                    <ChevronLeft size={18} />
+                    {currentDocIndex === 0 ? "Retour à la sélection" : "Document précédent"}
+                  </button>
+                  <button type="button" className="primary-button8" onClick={handleNextDocument}>
+                    {hasShareholderVariables() && (selectedType === "SARL" || selectedType === "SAS")
+                      ? "Ajouter les actionnaires"
+                      : currentDocIndex < documents.length - 1
+                        ? "Document suivant"
+                        : "Continuer vers confirmation"}
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
         </div>
       )}
 
@@ -532,15 +545,66 @@ const CreationEntreprise = () => {
                 <h4>{doc.titre}</h4>
                 <div className="details-grid8">
                   {doc.variables &&
-                    doc.variables.map((variable) => (
-                      <div key={variable.nom} className="detail-item8">
-                        <strong>{variable.nom} :</strong>
-                        <span>{formValues[variable.nom] || ""}</span>
-                      </div>
-                    ))}
+                    doc.variables
+                      .filter(
+                        (variable) =>
+                          !variable.nom.includes("#LOOP_") &&
+                          !variable.nom.includes("/LOOP_") &&
+                          !variable.nom.includes("#IF_") &&
+                          !variable.nom.includes("/IF_") &&
+                          ![
+                            "nombre_actionnaires",
+                            "liste_actionnaires",
+                            "total_apports_numeraire",
+                            "nombre_total_parts",
+                            "nombre_total_actions",
+                          ].includes(variable.nom),
+                      )
+                      .map((variable) => (
+                        <div key={variable.nom} className="detail-item8">
+                          <strong>{variable.nom} :</strong>
+                          <span>{formValues[variable.nom] || ""}</span>
+                        </div>
+                      ))}
                 </div>
               </div>
             ))}
+
+            {/* Afficher les actionnaires si présents */}
+            {formValues.liste_actionnaires && (
+              <div className="document-section8">
+                <h4>Actionnaires / Associés</h4>
+                <div className="shareholders-confirmation">
+                  {JSON.parse(formValues.liste_actionnaires).map((actionnaire, index) => (
+                    <div key={index} className="shareholder-confirmation-card">
+                      <h5>Actionnaire {index + 1}</h5>
+                      <div className="details-grid8">
+                        <div className="detail-item8">
+                          <strong>Nom :</strong>
+                          <span>{actionnaire.nom_associe}</span>
+                        </div>
+                        <div className="detail-item8">
+                          <strong>Apport :</strong>
+                          <span>{actionnaire.apport_numeraire_associe} €</span>
+                        </div>
+                        {selectedType === "SARL" && (
+                          <div className="detail-item8">
+                            <strong>Parts :</strong>
+                            <span>{actionnaire.nombre_parts_associe}</span>
+                          </div>
+                        )}
+                        {selectedType === "SAS" && (
+                          <div className="detail-item8">
+                            <strong>Actions :</strong>
+                            <span>{actionnaire.nombre_actions_associe}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="form-actions8">
@@ -569,7 +633,7 @@ const CreationEntreprise = () => {
                 accept=".pdf,.jpg,.jpeg,.png"
                 onChange={handleFileChange}
                 required
-                className="file-input8"
+                className="file-input"
               />
             </div>
 
@@ -599,4 +663,4 @@ const CreationEntreprise = () => {
   )
 }
 
-export default CreationEntreprise
+export default CreationEntrepriseUpdated
